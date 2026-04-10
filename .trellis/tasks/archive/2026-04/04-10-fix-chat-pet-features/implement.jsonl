@@ -1,0 +1,7 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend development guide"}
+{"file": "src/store/config.ts", "reason": "API config store for LLM settings"}
+{"file": "src/store/pet-kingdom.ts", "reason": "Pet proactive behavior and定时 triggers"}
+{"file": "src/store/pet.ts", "reason": "Chat-based stat increases"}
+{"file": "src/components/Chat.vue", "reason": "API config error handling"}
+{"file": "src/services/knowledge-sharing.ts", "reason": "知识分享 with timed triggers"}

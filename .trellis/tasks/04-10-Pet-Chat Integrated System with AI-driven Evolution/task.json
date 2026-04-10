@@ -1,0 +1,44 @@
+{
+  "id": "Pet-Chat Integrated System with AI-driven Evolution",
+  "name": "Pet-Chat Integrated System with AI-driven Evolution",
+  "title": "Merge pet and chat functionality into an integrated AI-driven pet system with the following requirements:\n\n## Core Requirements\n1. **Pet & Chat Integration**: Click pet to open chat interface showing pet's status\n2. **6 Basic Needs System**: eat, play/chat, sleep, love/affection, learn/knowledge\n   - First 3 (eat, play, sleep) trigger at meal times\n   - Last 3 (love, chat, learn) trigger randomly between meals\n3. **Health System**: \n   - If not fed at meal time: happiness -1, health -1\n   - 4 consecutive missed feedings = death\n   - Health gradually decreases without proper care\n4. **AI-driven Behavior**:\n   - 10-minute interval checks for needs\n   - Every hour:主动发起话题聊天(每小时最多1次，夜间不打扰)\n   - Pet learns from chat history and remembers user interests\n   - Pet evolves based on user care quality\n5. **Chat Features**:\n   - Chat shows pet's current needs\n   - Pet can request fulfillment of most urgent need\n   - Pet generates interesting topics based on chat history (max 1/hour, no夜间打扰)\n   - Pet summarizes user interests/needs from chat history\n   - Pet searches and shares news/knowledge to help user learn\n6. **Dynamic Evolution**:\n   - Pet evolves as friendship grows (stranger → familiar → friend)\n   - New needs emerge as pet evolves\n   - Pet adjusts personality based on user interactions\n   - User can instruct pet to self-care (pet complies unconditionally)\n   - Pet optimizes conversation topics to please user\n7. **Technical**: All behavior driven by LLM with定时触发 mechanisms\n",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "priority": "P2",
+  "creator": "feide",
+  "assignee": "feide",
+  "createdAt": "2026-04-10",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "current_phase": 0,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

@@ -1,0 +1,4 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend development guide"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "Chat.vue component needs to follow Vue 3 composition API patterns"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "Pet store needs Pinia store patterns for state management"}

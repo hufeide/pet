@@ -1,0 +1,4 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend development guide"}
+{"file": "src/components/NeedHelpModal.vue", "reason": "Fix modal not showing issue"}
+{"file": "src/components/Chat.vue", "reason": "Add error handling for chat"}

@@ -1,0 +1,5 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend development guide"}
+{"file": "src/components/Pet.vue", "reason": "Add chat button to open integrated chat interface"}
+{"file": "src/components/Chat.vue", "reason": "Add pet status panel to show pet's current needs"}
+{"file": "src/App.vue", "reason": "Update tab navigation to support integrated pet-chat view"}

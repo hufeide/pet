@@ -1,0 +1,6 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend development guide"}
+{"file": "src/components/Chat.vue", "reason": "Main chat component that needs history persistence and modal fix"}
+{"file": "src/components/NeedHelpModal.vue", "reason": "Need help modal component that is not showing"}
+{"file": "src/store/pet.ts", "reason": "Pet store that manages chat history and DB persistence"}
+{"file": "src/api/llm.ts", "reason": "LLM API client for chat responses"}
