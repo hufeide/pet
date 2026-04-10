@@ -4,6 +4,15 @@ import { getPet, savePet, addChatMessage, getChatHistory } from '../db';
 import { generateUUID } from '../utils/uuid';
 import { LLMClient } from '../api/llm';
 
+// Default API configuration
+const DEFAULT_CONFIG = {
+  provider: 'custom',
+  baseUrl: 'http://192.168.1.159:19000/v1',
+  apiKey: 'sk-no-key-required',
+  model: 'Qwen3Coder',
+  imageModel: '',
+};
+
 interface PetStats {
   happiness: number;
   hunger: number;
@@ -139,13 +148,9 @@ export const usePetStore = defineStore('pet', () => {
     error.value = null;
 
     try {
-      // Get config from localStorage
+      // Get config from localStorage, use default if not set
       const configStr = localStorage.getItem('llm_config');
-      if (!configStr) {
-        throw new Error('API configuration not set');
-      }
-
-      const config = JSON.parse(configStr);
+      const config = configStr ? JSON.parse(configStr) : DEFAULT_CONFIG;
 
       // Create LLM client and get response from real API
       const client = new LLMClient({

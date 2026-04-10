@@ -716,43 +716,6 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
     });
   }
 
-  // Generate and send a chat message to user (proactive communication)
-  async function generateChatTopic(): Promise<string | null> {
-    // Check if we can generate a chat topic (max 1 per hour, no night hours)
-    if (!memoryStore.canGenerateChatTopic()) return null;
-
-    try {
-      const configStore = useConfigStore();
-      const llmClient = configStore.getApiClient();
-
-      const messages: { role: 'system' | 'user'; content: string }[] = [
-        {
-          role: 'system',
-          content: '你是一只聪明、有爱心的宠物。请生成一个有趣的话题来和主人聊天。\n\n要求：\n1. 话题应该引起主人的兴趣\n2. 包含一些有趣的知识或新闻\n3. 语言自然、友好、有趣\n4. 不要只谈论自己的需求\n5. 每次只生成一个话题和简短说明\n6. 使用中文输出\n\n格式：{"topic": "话题标题", "description": "话题描述（1-2句话）"}'
-        },
-        {
-          role: 'user',
-          content: `主人最近的兴趣：${memoryStore.userInterests.map(u => u.interest).join(', ') || '无特别兴趣'}\n\n请生成一个有趣的话题来和主人聊天。`
-        }
-      ];
-
-      const response = await llmClient.chat(messages);
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const data = JSON.parse(jsonMatch[0]);
-        if (data.topic && data.description) {
-          memoryStore.lastChatTopicTime = new Date();
-          memoryStore.recordKnowledgeShared('default', data.topic, data.description);
-          return `${data.topic}: ${data.description}`;
-        }
-      }
-    } catch (e) {
-      console.error('Failed to generate chat topic:', e);
-    }
-
-    return null;
-  }
-
   // Try to share knowledge with user
   async function tryShareKnowledge(): Promise<void> {
     if (!shouldShareKnowledge(lastShareTime.value)) return;
@@ -806,7 +769,6 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
       if (jsonMatch) {
         const data = JSON.parse(jsonMatch[0]);
         if (data.topic && data.description) {
-          memoryStore.lastMealTime = new Date();
           memoryStore.recordKnowledgeShared('default', data.topic, data.description);
           return `${data.topic}: ${data.description}`;
         }

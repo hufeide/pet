@@ -59,6 +59,7 @@ export const useMemoryStore = defineStore('memory', () => {
   const evolutionHistory = ref<Array<{ id: string; level: FriendshipLevel; timestamp: string; changes: string[] }>>([]);
   const missedFeedings = ref(0);
   const lastMealTime = ref<Date | null>(null);
+  const lastChatTopicTime = ref<Date | null>(null);
 
   // Computed
   const totalMemories = computed(() => memories.value.length);
@@ -217,6 +218,7 @@ export const useMemoryStore = defineStore('memory', () => {
 
   // Record knowledge shared with user
   async function recordKnowledgeShared(petId: string, topic: string, summary: string): Promise<void> {
+    lastChatTopicTime.value = new Date();
     await addMemory(
       'knowledge_shared' as PetMemoryType,
       `Shared: ${topic}`,
@@ -341,10 +343,10 @@ ${userInterests.value.slice(0, 5).map(i => `- ${i.interest} (mentioned ${i.times
   // Check if we can generate a chat topic (max 1 per hour, no nighttime)
   function canGenerateChatTopic(): boolean {
     if (isSleepTime()) return false;
-    if (!lastMealTime.value) return true;
+    if (!lastChatTopicTime.value) return true;
 
     const now = new Date();
-    const diffMinutes = (now.getTime() - lastMealTime.value.getTime()) / (1000 * 60);
+    const diffMinutes = (now.getTime() - lastChatTopicTime.value.getTime()) / (1000 * 60);
     return diffMinutes >= 60;
   }
 
@@ -363,6 +365,7 @@ ${userInterests.value.slice(0, 5).map(i => `- ${i.interest} (mentioned ${i.times
     evolutionHistory,
     missedFeedings,
     lastMealTime,
+    lastChatTopicTime,
     friendshipLevel,
     recordNeedSatisfied,
     recordUserInterest,

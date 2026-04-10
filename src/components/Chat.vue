@@ -59,7 +59,7 @@
         <div class="message-content">{{ message.content }}</div>
         <div class="message-time">{{ formatDate(message.timestamp) }}</div>
       </div>
-      
+
       <div v-if="loading" class="message message-loading">
         <div class="loading-dots">
           <span></span>
@@ -82,6 +82,13 @@
       >
         {{ loading ? '...' : 'Send' }}
       </button>
+    </div>
+
+    <!-- Error Toast Notification -->
+    <div v-if="errorMessage" class="error-toast">
+      <span class="error-icon">⚠️</span>
+      <span class="error-text">{{ errorMessage }}</span>
+      <button class="error-close" @click="closeErrorToast">×</button>
     </div>
   </div>
 
@@ -115,6 +122,7 @@ const memoryStore = useMemoryStore();
 const input = ref('');
 const chatHistoryRef = ref<HTMLDivElement | null>(null);
 const loading = computed(() => petStore.loading);
+const errorMessage = ref<string | null>(null);
 
 // Pet status from kingdom store
 const petStatus = computed(() => petKingdomStore.petStatus);
@@ -184,9 +192,17 @@ function sendMessage() {
     );
   }).catch((err) => {
     console.error('Chat error:', err);
-    // Show error to user
-    alert(`Failed to get response: ${err.message}`);
+    // Show error toast to user
+    errorMessage.value = err.message || 'Failed to get response';
+    // Auto-hide error after 5 seconds
+    setTimeout(() => {
+      errorMessage.value = null;
+    }, 5000);
   });
+}
+
+function closeErrorToast() {
+  errorMessage.value = null;
 }
 
 function openNeedHelp(needKey: string) {
@@ -600,5 +616,59 @@ watch(
   font-size: 14px;
   line-height: 1.6;
   color: #666;
+}
+
+/* Error Toast Styles */
+.error-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #f44336;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 1001;
+  animation: slideUp 0.3s ease-out;
+}
+
+.error-toast .error-icon {
+  font-size: 18px;
+}
+
+.error-toast .error-text {
+  flex: 1;
+  font-size: 14px;
+}
+
+.error-toast .error-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.error-toast .error-close:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 20px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
 }
 </style>

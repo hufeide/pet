@@ -1,8 +1,6 @@
 // Knowledge Sharing Service
 // Pet automatically shares interesting knowledge with user
 
-import { useMemoryStore } from '../store/memory';
-
 // Knowledge topics categories
 const KNOWLEDGE_TOPICS = {
   history: [
@@ -76,12 +74,6 @@ function isSharingTime(): boolean {
   return hour >= 8 && hour < 22;
 }
 
-// Check if current time is midnight (00:00)
-function isMidnight(): boolean {
-  const hour = new Date().getHours();
-  return hour === 0;
-}
-
 // Generate a knowledge share message
 export function generateKnowledgeShare(): { topic: string; content: string } {
   const content = getRandomKnowledgeAny();
@@ -106,13 +98,10 @@ export function generateKnowledgeShare(): { topic: string; content: string } {
 }
 
 // Check if pet should share knowledge (random chance, max 1 per 2-4 hours)
-// Can only trigger at midnight (00:00)
+// Can trigger anytime between 8am-10pm, with higher chance at meal times
 export function shouldShareKnowledge(lastShareTime: Date | null): boolean {
   // Can only share during daytime (8am-10pm)
   if (!isSharingTime()) return false;
-
-  // Only trigger at midnight
-  if (!isMidnight()) return false;
 
   if (!lastShareTime) return true;
 
@@ -120,7 +109,9 @@ export function shouldShareKnowledge(lastShareTime: Date | null): boolean {
   const diffHours = (now.getTime() - lastShareTime.getTime()) / (1000 * 60 * 60);
 
   // Share every 2-4 hours randomly
-  // At midnight, check if 2+ hours since last share with 30% chance
-  const shouldShare = diffHours >= 2 && Math.random() < 0.3;
-  return shouldShare;
+  // Increased chance after 2 hours, maximum chance after 4 hours
+  if (diffHours >= 4) return true;
+  if (diffHours >= 2 && Math.random() < 0.4) return true;
+
+  return false;
 }
