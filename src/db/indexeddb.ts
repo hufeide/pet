@@ -68,12 +68,17 @@ interface SocialConversation {
   petId: string;
   characterId: string;
   characterRole: string;
-  questionsAnswered: any[];
+  characterName: string;
+  questionsAnswered: Array<{
+    question: string;
+    answer: string;
+    llmScore: number;
+  }>;
   success: boolean;
   experience: number;
   learnedTips: string[];
   timestamp: string;
-  mood: string;
+  mood: 'happy' | 'neutral' | 'sad' | 'angry';
 }
 
 interface MemoryRecord {

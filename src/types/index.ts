@@ -7,7 +7,7 @@ export * from './memory';
 
 // Re-export store types for convenience
 // Adventure types
-export type { Direction, Position, AdventureItem, Enemy, Quest } from './adventure';
+export type { Direction, Position, Enemy } from './adventure';
 // Social types
 export type { CharacterRole, SocialCharacter, ConversationRecord } from './social';
 // Memory types
