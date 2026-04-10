@@ -18,6 +18,8 @@ interface PetStats {
   hunger: number;
   health: number;
   energy: number;
+  sleep: number;
+  play: number;
 }
 
 interface PetData {
@@ -47,6 +49,8 @@ export const usePetStore = defineStore('pet', () => {
       hunger: 100,
       health: 100,
       energy: 100,
+      sleep: 100,
+      play: 100,
     },
     inventory: [],
     createdAt: new Date().toISOString(),
@@ -205,6 +209,8 @@ export const usePetStore = defineStore('pet', () => {
       timestamp: new Date().toISOString(),
     };
     chatHistory.value.push(userMessage);
+    // Save user message to database immediately
+    addChatMessage(pet.value.id, 'user', content);
   }
 
   async function generateOutfit(prompt: string): Promise<string> {
@@ -248,6 +254,8 @@ export const usePetStore = defineStore('pet', () => {
         hunger: 100,
         health: 100,
         energy: 100,
+        sleep: 100,
+        play: 100,
       },
       inventory: [],
       createdAt: new Date().toISOString(),

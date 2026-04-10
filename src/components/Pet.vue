@@ -29,7 +29,8 @@
           />
         </g>
 
-        <!-- Accessories (outfit) -->
+        <!-- Accessories (outfit) - disabled until inventory system is implemented -->
+        <!--
         <g
           v-for="item in currentOutfit"
           :key="item.id"
@@ -43,6 +44,7 @@
             stroke-width="1"
           />
         </g>
+        -->
 
         <!-- Eyes -->
         <g :class="['eyes', 'eyes-' + emotionalState]">
@@ -52,7 +54,7 @@
 
         <!-- Eyebrows (expression) -->
         <g
-          v-if="emotionalState === 'sad' || emotionalState === 'angry'"
+          v-if="emotionalState === 'sad'"
           :class="['eyebrows', 'eyebrows-' + emotionalState]"
         >
           <path d="M30 35 L46 40" stroke="#333" stroke-width="2" />
@@ -92,7 +94,7 @@
           <rect
             x="5"
             y="5"
-            :width="(pet.stats.happiness / 100) * 90"
+            :width="(pet.happiness / 100) * 90"
             height="8"
             fill="#4CAF50"
             rx="4"
@@ -111,40 +113,59 @@
     <div class="pet-info">
       <h3>{{ pet.name }}</h3>
       <p class="level">{{ levelName }}</p>
+      <!-- Basic 6 stats: Happiness, Hunger, Health, Energy, Sleep, Play -->
       <div class="stats-grid">
         <div class="stat-item">
-          <span class="stat-label">❤️</span>
+          <span class="stat-label">❤️ Happiness</span>
           <div class="stat-bar">
             <div
               class="stat-fill"
-              :style="{ width: pet.stats.happiness + '%' }"
+              :style="{ width: pet.happiness + '%' }"
             />
           </div>
         </div>
         <div class="stat-item">
-          <span class="stat-label">🍗</span>
+          <span class="stat-label">🍗 Hunger</span>
           <div class="stat-bar">
             <div
               class="stat-fill"
-              :style="{ width: pet.stats.hunger + '%' }"
+              :style="{ width: pet.hunger + '%' }"
             />
           </div>
         </div>
         <div class="stat-item">
-          <span class="stat-label">❤️</span>
+          <span class="stat-label">❤️ Health</span>
           <div class="stat-bar">
             <div
               class="stat-fill"
-              :style="{ width: pet.stats.health + '%' }"
+              :style="{ width: pet.health + '%' }"
             />
           </div>
         </div>
         <div class="stat-item">
-          <span class="stat-label">⚡</span>
+          <span class="stat-label">⚡ Energy</span>
           <div class="stat-bar">
             <div
               class="stat-fill"
-              :style="{ width: pet.stats.energy + '%' }"
+              :style="{ width: pet.energy + '%' }"
+            />
+          </div>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">💤 Sleep</span>
+          <div class="stat-bar">
+            <div
+              class="stat-fill"
+              :style="{ width: pet.sleep + '%' }"
+            />
+          </div>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">⚽ Play</span>
+          <div class="stat-bar">
+            <div
+              class="stat-fill"
+              :style="{ width: pet.play + '%' }"
             />
           </div>
         </div>
@@ -155,7 +176,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { usePetStore } from '../store/pet';
+import { usePetKingdomStore } from '../store/pet-kingdom';
 import { PetForm, PersonalityTrait } from '../types';
 
 const props = defineProps<{
@@ -166,29 +187,38 @@ const emit = defineEmits<{
   (e: 'start-chat'): void;
 }>();
 
-const petStore = usePetStore();
+const petKingdomStore = usePetKingdomStore();
 
-const pet = computed(() => petStore.pet);
-const currentForm = computed(() => pet.value.form);
-const emotionalState = computed(() => {
-  if (pet.value.stats.happiness < 30) return 'sad';
-  if (pet.value.stats.hunger < 30) return 'hungry';
-  if (pet.value.stats.energy < 30) return 'tired';
-  if (pet.value.stats.happiness > 80) return 'happy';
-  return 'neutral';
-});
+// Use petStatus from pet-kingdom store as the single source of truth
+const pet = computed(() => petKingdomStore.petStatus);
+const levelName = computed(() => `Level ${pet.value.level}`);
 
+// Color theme based on pet level
 const colorTheme = computed(() => ({
   body: getColorForLevel(pet.value.level),
   glow: getGlowColor(pet.value.level),
   accessory: '#ffffff',
 }));
 
-const currentOutfit = computed(() => {
-  return pet.value.inventory.filter((item) => item.type === 'outfit');
+// No inventory system in petStatus, return empty array
+const currentOutfit = computed(() => []);
+
+// Pet form based on level
+const currentForm = computed(() => {
+  const level = pet.value.level;
+  if (level >= 5) return 'legendary';
+  if (level >= 3) return 'evolved';
+  return 'basic';
 });
 
-const levelName = computed(() => `Level ${pet.value.level}`);
+const emotionalState = computed(() => {
+  if (pet.value.happiness < 30) return 'sad';
+  if (pet.value.hunger < 30) return 'hungry';
+  if (pet.value.sleep < 30) return 'tired';
+  if (pet.value.energy < 30) return 'tired';
+  if (pet.value.happiness > 80) return 'happy';
+  return 'neutral';
+});
 
 function getColorForLevel(level: number): string {
   const colors: Record<number, string> = {
@@ -212,18 +242,6 @@ function getGlowColor(level: number): string {
   return colors[level % 5] || '#ffffff';
 }
 
-function getAccessoryPath(item: any): string {
-  // Default accessory shape
-  switch (item.metadata.shape) {
-    case 'bow':
-      return 'M40 20 Q50 10 60 20 Q60 30 50 30 Q40 30 40 20';
-    case 'hat':
-      return 'M30 20 L70 20 L60 5 L40 5 Z';
-    default:
-      return 'M35 45 L65 45 L65 55 L35 55 Z';
-  }
-}
-
 function handlePetClick() {
   emit('start-chat');
 }
@@ -235,16 +253,14 @@ function startChat() {
 const timer = ref<number | null>(null);
 
 onMounted(() => {
-  // Auto-save pet state periodically
+  // Auto-save pet status periodically
   timer.value = window.setInterval(() => {
-    petStore.saveToDB();
+    petKingdomStore.checkNeeds();
   }, 30000);
 });
 
 onUnmounted(() => {
-  if (timer.value) {
-    clearInterval(timer.value);
-  }
+  clearInterval(timer.value);
 });
 </script>
 

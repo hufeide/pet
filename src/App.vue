@@ -16,10 +16,10 @@
 
     <main class="app-main">
       <Pet v-if="currentTab === 'pet'" :showStats="true" @start-chat="startPetChat" />
-      <Chat v-if="currentTab === 'chat'" :maxHistory="50" />
       <Chat
-        v-if="isChattingWithPet"
+        v-if="currentTab === 'chat'"
         :maxHistory="50"
+        :showPetStatus="isChattingWithPet"
         @close-chat="stopPetChat"
       />
       <Adventure v-if="currentTab === 'adventure'" />
@@ -45,13 +45,13 @@ const currentTab = ref<'pet' | 'chat' | 'adventure' | 'social' | 'memory' | 'con
 const isChattingWithPet = ref(false);
 
 const tabs = [
-  { id: 'pet', label: 'Pet' },
-  { id: 'chat', label: 'Chat' },
-  { id: 'adventure', label: 'Adventure' },
-  { id: 'social', label: 'Social' },
-  { id: 'memory', label: 'Memory' },
-  { id: 'config', label: 'Config' },
-  { id: 'paradise', label: 'Paradise' },
+  { id: 'pet' as const, label: 'Pet' },
+  { id: 'chat' as const, label: 'Chat' },
+  { id: 'adventure' as const, label: 'Adventure' },
+  { id: 'social' as const, label: 'Social' },
+  { id: 'memory' as const, label: 'Memory' },
+  { id: 'config' as const, label: 'Config' },
+  { id: 'paradise' as const, label: 'Paradise' },
 ];
 
 function startPetChat() {

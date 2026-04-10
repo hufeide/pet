@@ -1,7 +1,7 @@
 <template>
   <div class="chat-container">
-    <!-- Pet Status Panel -->
-    <div class="pet-status-panel" v-if="petStatus">
+    <!-- Pet Status Panel - only show when isChattingWithPet is true -->
+    <div class="pet-status-panel" v-if="showPetStatus && petStatus">
       <div class="status-header">
         <h3>{{ petStatus.name }}</h3>
         <span class="status-level">Level {{ level }}</span>
@@ -109,6 +109,7 @@ import NeedHelpModal from './NeedHelpModal.vue';
 
 const props = defineProps<{
   maxHistory?: number;
+  showPetStatus?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -143,17 +144,17 @@ const petRequest = computed(() => petKingdomStore.petRequest);
 // Knowledge sharing interval
 const knowledgeShareInterval = ref<number | null>(null);
 
-// Need configuration with help content
+// Need configuration with help content - using full rules from NeedHelpModal
 const needConfig = computed(() => [
-  { key: 'happiness', label: '❤️ Happiness', reason: 'Neglect or loneliness causes happiness to decrease', actions: 'Petting your pet, playing games together' },
-  { key: 'hunger', label: '🍗 Hunger', reason: 'Time passes and hunger naturally increases', actions: 'Feeding your pet regularly' },
-  { key: 'health', label: '❤️ Health', reason: 'Poor care or illness causes health to decrease', actions: 'Providing proper care, giving medicine when needed' },
-  { key: 'energy', label: '⚡ Energy', reason: 'Activity decreases energy, lack of sleep also affects it', actions: 'Resting, putting pet to sleep' },
-  { key: 'sleep', label: '💤 Sleep', reason: 'Activity and lack of rest decreases sleep need', actions: 'Putting pet to bed, allowing rest' },
-  { key: 'play', label: '⚽ Play', reason: 'No playtime causes play need to decrease', actions: 'Playing games, using toys' },
-  { key: 'love', label: '💖 Love', reason: 'Neglect or lack of affection causes love to decrease', actions: 'Petting, showing affection' },
-  { key: 'chat', label: '💬 Chat', reason: 'No conversation causes chat need to decrease', actions: 'Talking to your pet' },
-  { key: 'knowledge', label: '📚 Knowledge', reason: 'No learning causes knowledge to decrease', actions: 'Learning new topics, reading' },
+  { key: 'happiness' as const, label: '❤️ Happiness' },
+  { key: 'hunger' as const, label: '🍗 Hunger' },
+  { key: 'health' as const, label: '❤️ Health' },
+  { key: 'energy' as const, label: '⚡ Energy' },
+  { key: 'sleep' as const, label: '💤 Sleep' },
+  { key: 'play' as const, label: '⚽ Play' },
+  { key: 'love' as const, label: '💖 Love' },
+  { key: 'chat' as const, label: '💬 Chat' },
+  { key: 'knowledge' as const, label: '📚 Knowledge' },
 ]);
 
 // Help modal state
@@ -226,9 +227,8 @@ function formatDate(timestamp: string): string {
 
 // Start knowledge sharing check interval when chat is open
 onMounted(() => {
-  console.log('[Chat] onMounted - loading chat history');
   petStore.loadFromDB().then(() => {
-    console.log('[Chat] Loaded history, messages count:', petStore.chatHistory.length);
+    // Chat history loaded
   });
 
   // Start periodic knowledge sharing check (every 5 minutes while chat is open)
@@ -247,7 +247,6 @@ onUnmounted(() => {
 watch(
   () => petStore.chatHistory,
   (newHistory, oldHistory) => {
-    console.log('[Chat] Chat history changed:', newHistory.length, 'messages');
     if (chatHistoryRef.value) {
       chatHistoryRef.value.scrollTop = chatHistoryRef.value.scrollHeight;
     }
