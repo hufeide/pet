@@ -38,6 +38,7 @@ export function buildSystemPrompt(context?: {
   petStats?: any;
   personalityProfile?: any;
   userInterests?: any;
+  userProfile?: any;
 }): string {
   const parts: string[] = [];
 
@@ -92,6 +93,22 @@ export function buildSystemPrompt(context?: {
     parts.push('');
   }
 
+  // User profile context
+  if (context?.userProfile) {
+    parts.push('# Your Master\'s Profile');
+    parts.push(`- Name: ${context.userProfile.name || 'Master'}`);
+    if (context.userProfile.bio && context.userProfile.bio.length > 0) {
+      parts.push(`- Bio: ${context.userProfile.bio}`);
+    }
+    if (context.userProfile.preferences && context.userProfile.preferences.length > 0) {
+      parts.push(`- Preferences: ${context.userProfile.preferences.slice(0, 5).join(', ')}`);
+    }
+    if (context.userProfile.dislikes && context.userProfile.dislikes.length > 0) {
+      parts.push(`- Dislikes: ${context.userProfile.dislikes.slice(0, 5).join(', ')}`);
+    }
+    parts.push('');
+  }
+
   // Identity and role
   parts.push('# Your Identity');
   parts.push('You are an AI-powered virtual pet living in a pet-chat application.');
@@ -106,6 +123,7 @@ export function buildSystemPrompt(context?: {
   parts.push('- Be consistent with your personality and relationship level');
   parts.push('- If a master asks about your status, answer truthfully based on the numbers');
   parts.push('- Show your personality through your word choices and tone');
+  parts.push('- Reference your master\'s profile and preferences when appropriate');
   parts.push('');
 
   return parts.join('\n');

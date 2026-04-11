@@ -192,6 +192,17 @@ export interface StatusTrend {
   trend: 'up' | 'down' | 'stable';
 }
 
+// User identity and preference profile
+export interface UserProfile {
+  id: string;
+  petId: string;
+  name: string;
+  bio: string;
+  preferences: string[];
+  dislikes: string[];
+  lastUpdated: string;
+}
+
 // Conversation context for AI responses
 export interface ConversationContext {
   petId: string;

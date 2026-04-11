@@ -115,6 +115,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { usePetStore } from '../store/pet';
 import { usePetKingdomStore } from '../store/pet-kingdom';
 import { useMemoryStore } from '../store/memory';
+import { useUserStore } from '../store/user';
 import NeedHelpModal from './NeedHelpModal.vue';
 
 const props = defineProps<{
@@ -129,6 +130,7 @@ const emit = defineEmits<{
 const petStore = usePetStore();
 const petKingdomStore = usePetKingdomStore();
 const memoryStore = useMemoryStore();
+const userStore = useUserStore();
 
 const input = ref('');
 const chatHistoryRef = ref<HTMLDivElement | null>(null);
@@ -151,8 +153,34 @@ const level = computed(() => {
 // Pet request for urgent needs
 const petRequest = computed(() => petKingdomStore.petRequest);
 
+// Periodic user profile update from chat history
+async function updateUserProfileFromChat() {
+  const chatHistory = petStore.chatHistory;
+  if (chatHistory.length === 0) return;
+
+  // Get recent messages for analysis (last 20 messages)
+  const recentMessages = chatHistory.slice(-20);
+  const combinedContent = recentMessages
+    .map(msg => (msg as any).content)
+    .join(' ');
+
+  // Extract preferences from combined content
+  const { preferences, dislikes } = userStore.extractPreferencesFromConversation(combinedContent);
+
+  // Add extracted preferences to user profile
+  for (const pref of preferences) {
+    await userStore.addPreference(pref);
+  }
+  for (const dislike of dislikes) {
+    await userStore.addDislike(dislike);
+  }
+}
+
 // Knowledge sharing interval
 const knowledgeShareInterval = ref<number | null>(null);
+
+// Profile update interval (for periodic user preference extraction)
+const profileUpdateInterval = ref<number | null>(null);
 
 // Need configuration with help content - using full rules from NeedHelpModal
 const needConfig = computed(() => [
@@ -256,6 +284,7 @@ const visibleMessages = computed(() => {
 // Load conversation history when component mounts
 onMounted(async () => {
   await petStore.loadFromDB();
+  await userStore.loadFromDB('default');
 });
 
 // Send full conversation history with context to AI
@@ -302,6 +331,7 @@ async function sendMessage() {
     },
     personalityProfile: memoryStore.getPersonalityProfile('default'),
     userInterests: memoryStore.userInterests,
+    userProfile: userStore.profile,
   };
 
   // Call AI to get response with full context
@@ -370,12 +400,20 @@ onMounted(() => {
   knowledgeShareInterval.value = window.setInterval(() => {
     petKingdomStore.tryShareKnowledge();
   }, 5 * 60 * 1000); // Check every 5 minutes
+
+  // Start periodic user profile update (every 10 minutes)
+  profileUpdateInterval.value = window.setInterval(() => {
+    updateUserProfileFromChat();
+  }, 10 * 60 * 1000); // Check every 10 minutes
 });
 
 // Cleanup interval when component is unloaded
 onUnmounted(() => {
   if (knowledgeShareInterval.value) {
     clearInterval(knowledgeShareInterval.value);
+  }
+  if (profileUpdateInterval.value) {
+    clearInterval(profileUpdateInterval.value);
   }
 });
 

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { generateUUID } from '../utils/uuid';
-import { saveMemory, getMemories } from '../db';
+import { saveMemory, getMemories, getUserProfile, saveUserProfile as saveUserProfileDB } from '../db';
 
 // Extended memory types for pet-chat system
 export type PetMemoryType =
@@ -105,6 +105,7 @@ export const useMemoryStore = defineStore('memory', () => {
   const lastChatTopicTime = ref<Date | null>(null);
   const statusHistory = ref<StatusHistoryRecord[]>([]);
   const personalityProfiles = ref<PersonalityProfile[]>([]);
+  const userProfiles = ref<import('../store/user').UserProfile[]>([]);
 
   // Computed
   const totalMemories = computed(() => memories.value.length);
@@ -609,6 +610,88 @@ ${userInterests.value.slice(0, 5).map(i => `- ${i.interest} (mentioned ${i.times
     return { currentValue, change24h, trend };
   }
 
+  // ==========================================
+  // User Profile Functions
+  // ==========================================
+
+  // Load user profile from DB
+  async function loadUserProfile(petId: string): Promise<void> {
+    try {
+      const savedProfile = await getUserProfile(petId);
+      if (savedProfile) {
+        userProfiles.value = [savedProfile];
+      } else {
+        userProfiles.value = [];
+      }
+    } catch (err) {
+      console.error(`Failed to load user profile: ${err}`);
+      userProfiles.value = [];
+    }
+  }
+
+  // Save user profile to DB (renamed to avoid conflict)
+  async function saveUserProfile(
+    profile: import('../store/user').UserProfile,
+  ): Promise<void> {
+    await saveUserProfileDB(profile);
+  }
+
+  // Update user profile
+  async function updateUserProfile(
+    id: string,
+    updates: Partial<import('../store/user').UserProfile>,
+  ): Promise<void> {
+    const db = await import('../db');
+    await db.updateUserProfile(id, updates);
+  }
+
+  // Extract user preferences from conversation content
+  function extractUserPreferences(content: string): {
+    preferences: string[];
+    dislikes: string[];
+  } {
+    const preferences: string[] = [];
+    const dislikes: string[] = [];
+    const contentLower = content.toLowerCase();
+
+    // Food preferences
+    const foodKeywords = ['pizza', 'burger', 'sushi', 'pasta', 'steak', 'salad', 'dessert', 'cake', 'chocolate'];
+    for (const keyword of foodKeywords) {
+      if (contentLower.includes(keyword)) {
+        preferences.push(keyword);
+      }
+    }
+
+    // Activity preferences
+    const activityKeywords = ['gaming', 'reading', 'music', 'sports', 'travel', 'photography', 'art', 'dance'];
+    for (const keyword of activityKeywords) {
+      if (contentLower.includes(keyword)) {
+        preferences.push(keyword);
+      }
+    }
+
+    // Music preferences
+    const musicKeywords = ['rock', 'pop', 'jazz', 'classical', 'hip hop', 'electronic', 'country', 'rap'];
+    for (const keyword of musicKeywords) {
+      if (contentLower.includes(keyword)) {
+        preferences.push(keyword);
+      }
+    }
+
+    // Dislike detection (negative sentiment indicators)
+    const negativeKeywords = ['hate', 'dislike', 'avoid', 'skip', 'never', "don't like", 'not fond'];
+    for (const keyword of negativeKeywords) {
+      if (contentLower.includes(keyword)) {
+        const match = contentLower.match(new RegExp(`${keyword}\\s+(\\w+)`));
+        if (match) {
+          dislikes.push(match[1]);
+        }
+      }
+    }
+
+    return { preferences, dislikes };
+  }
+
   return {
     memories,
     totalMemories,
@@ -645,5 +728,12 @@ ${userInterests.value.slice(0, 5).map(i => `- ${i.interest} (mentioned ${i.times
     getStatusTrend,
     statusHistory,
     personalityProfiles,
+
+    // User Profile Functions
+    userProfiles,
+    loadUserProfile,
+    saveUserProfile,
+    updateUserProfile,
+    extractUserPreferences,
   };
 });
