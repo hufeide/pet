@@ -253,7 +253,13 @@ const visibleMessages = computed(() => {
   return history.slice(-max);
 });
 
-function sendMessage() {
+// Load conversation history when component mounts
+onMounted(async () => {
+  await petStore.loadFromDB();
+});
+
+// Send full conversation history with context to AI
+async function sendMessage() {
   if (!input.value.trim() || loading.value) return;
 
   // Get input value before clearing
@@ -265,9 +271,25 @@ function sendMessage() {
   // Clear input immediately
   input.value = '';
 
-  // Call AI to get response
-  const messages = [{ role: 'user' as const, content: messageContent }];
-  petStore.chatWithAI(messages, (userContent, assistantContent) => {
+  // Build full conversation history for AI
+  // Include last 20 messages for context (AI handles context window)
+  const conversationHistory = petStore.chatHistory.slice(-20);
+
+  // Build messages array with conversation history
+  const messages = conversationHistory.map((msg: any) => ({
+    role: msg.role as 'user' | 'assistant',
+    content: msg.content,
+  }));
+
+  // Get context for system prompt
+  const context = {
+    petStatus: petStatus.value,
+    personalityProfile: memoryStore.getPersonalityProfile('default'),
+    userInterests: memoryStore.userInterests,
+  };
+
+  // Call AI to get response with full context
+  petStore.chatWithAI(messages, context, (userContent, assistantContent) => {
     // Save conversation to memory system
     memoryStore.addMemory(
       'conversation' as const,
@@ -277,6 +299,15 @@ function sendMessage() {
       8,
       ['chat', 'conversation']
     );
+    // Extract personality from user's message
+    memoryStore.extractPersonalityFromConversation('default', userContent, 'user');
+    // Record user interests
+    const interests = ['tech', 'science', 'art', 'music', 'sports', 'food'];
+    interests.forEach(interest => {
+      if (userContent.toLowerCase().includes(interest)) {
+        memoryStore.recordUserInterest('default', interest, 'topic');
+      }
+    });
   }).catch((err) => {
     console.error('Chat error:', err);
     // Show error toast to user
@@ -319,10 +350,6 @@ function formatDate(timestamp: string): string {
 
 // Start knowledge sharing check interval when chat is open
 onMounted(() => {
-  petStore.loadFromDB().then(() => {
-    // Chat history loaded
-  });
-
   // Start periodic knowledge sharing check (every 5 minutes while chat is open)
   knowledgeShareInterval.value = window.setInterval(() => {
     petKingdomStore.tryShareKnowledge();

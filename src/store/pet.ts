@@ -13,6 +13,79 @@ const DEFAULT_CONFIG = {
   imageModel: '',
 };
 
+// Personality trait descriptions for system prompt
+const PERSONALITY_TRAITS = {
+  friendly: 'Friendly - warm, approachable, enjoys social interaction',
+  shy: 'Shy - reserved, polite, takes time to open up',
+  aggressive: 'Aggressive - assertive, direct, strong-willed',
+  playful: 'Playful - fun-loving, humorous, energetic',
+  lazy: 'Lazy - relaxed, low energy, prefers comfort',
+  curious: 'Curious - inquisitive, loves learning, asks questions',
+  greedy: 'Greedy - material-focused, value-oriented',
+  generous: 'Generous - giving, sharing, caring',
+  wise: 'Wise - thoughtful, provides guidance, knowledgeable',
+  energetic: 'Energetic - active, enthusiastic, always on the move',
+  analytical: 'Analytical - logical, detail-oriented, reasoned',
+  emotional: 'Emotional - expressive, empathetic, feeling-oriented',
+  practical: 'Practical - realistic, solution-focused, action-oriented',
+  creative: 'Creative - imaginative, artistic, innovative',
+  polite: 'Polite - courteous, respectful, well-mannered',
+};
+
+// Build system prompt with pet context for AI
+function buildSystemPrompt(context?: {
+  petStatus?: any;
+  personalityProfile?: any;
+  userInterests?: any;
+}): string {
+  const parts: string[] = [];
+
+  // Pet status context
+  if (context?.petStatus) {
+    parts.push('# Pet Status');
+    parts.push(`- Hunger: ${context.petStatus.hunger || 0}/100`);
+    parts.push(`- Sleep: ${context.petStatus.sleep || 0}/100`);
+    parts.push(`- Play: ${context.petStatus.play || 0}/100`);
+    parts.push(`- Love: ${context.petStatus.love || 0}/100`);
+    parts.push(`- Chat: ${context.petStatus.chat || 0}/100`);
+    parts.push(`- Knowledge: ${context.petStatus.knowledge || 0}/100`);
+    parts.push(`- Health: ${context.petStatus.health || 0}/100`);
+    parts.push(`- Happiness: ${context.petStatus.happiness || 0}/100`);
+    parts.push('');
+  }
+
+  // Personality context
+  if (context?.personalityProfile?.traits) {
+    parts.push('# Your Personality Traits');
+    const traits = context.personalityProfile.traits;
+    Object.entries(traits).forEach(([trait, score]: [string, number]) => {
+      if (score > 30 && PERSONALITY_TRAITS[trait as keyof typeof PERSONALITY_TRAITS]) {
+        parts.push(`- ${trait}: ${PERSONALITY_TRAITS[trait as keyof typeof PERSONALITY_TRAITS]}`);
+      }
+    });
+    parts.push('');
+  }
+
+  // User interests context
+  if (context?.userInterests && context.userInterests.length > 0) {
+    parts.push('# User Interests');
+    context.userInterests.slice(0, 5).forEach((interest: any) => {
+      parts.push(`- ${interest.interest} (mentioned ${interest.timesMentioned || 1} times)`);
+    });
+    parts.push('');
+  }
+
+  // General instructions
+  parts.push('# Chat Guidelines');
+  parts.push('- Respond naturally based on your personality traits');
+  parts.push('- Consider your current status (e.g., hungry pets may be cranky)');
+  parts.push('- Remember previous conversations and user interests');
+  parts.push('- Be consistent with your personality');
+  parts.push('');
+
+  return parts.join('\n');
+}
+
 interface PetStats {
   happiness: number;
   hunger: number;
@@ -147,7 +220,15 @@ export const usePetStore = defineStore('pet', () => {
     await gainExperience(score * 2);
   }
 
-  async function chatWithAI(messages: any[], onConversationSaved?: (userContent: string, assistantContent: string) => void): Promise<string> {
+  async function chatWithAI(
+    messages: any[],
+    context?: {
+      petStatus?: any;
+      personalityProfile?: any;
+      userInterests?: any;
+    },
+    onConversationSaved?: (userContent: string, assistantContent: string) => void
+  ): Promise<string> {
     loading.value = true;
     error.value = null;
 
@@ -163,11 +244,17 @@ export const usePetStore = defineStore('pet', () => {
         model: config.model,
       });
 
+      // Build system prompt with pet context
+      const systemPrompt = buildSystemPrompt(context);
+
       // Convert messages to LLM format
-      const llmMessages = messages.map((m) => ({
-        role: m.role as 'system' | 'user' | 'assistant',
-        content: m.content,
-      }));
+      const llmMessages = [
+        { role: 'system' as const, content: systemPrompt },
+        ...messages.map((m) => ({
+          role: m.role as 'system' | 'user' | 'assistant',
+          content: m.content,
+        })),
+      ];
 
       // Get response from real LLM API
       const response = await client.chat(llmMessages);
