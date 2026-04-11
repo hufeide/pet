@@ -282,8 +282,24 @@ async function sendMessage() {
   }));
 
   // Get context for system prompt
+  // Combine pet stats from both stores for complete context
   const context = {
-    petStatus: petStatus.value,
+    petStatus: {
+      name: petStatus.value.name,
+      level: level.value,
+      friendship: petStatus.value.friendship,
+      love: petStatus.value.love,
+      chat: petStatus.value.chat,
+      knowledge: petStatus.value.knowledge,
+    },
+    petStats: {
+      happiness: petStatus.value.happiness,
+      hunger: petStatus.value.hunger,
+      health: petStatus.value.health,
+      energy: petStatus.value.energy,
+      sleep: petStatus.value.sleep,
+      play: petStatus.value.play,
+    },
     personalityProfile: memoryStore.getPersonalityProfile('default'),
     userInterests: memoryStore.userInterests,
   };

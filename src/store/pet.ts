@@ -35,22 +35,39 @@ const PERSONALITY_TRAITS = {
 // Build system prompt with pet context for AI
 function buildSystemPrompt(context?: {
   petStatus?: any;
+  petStats?: any;
   personalityProfile?: any;
   userInterests?: any;
 }): string {
   const parts: string[] = [];
 
-  // Pet status context
+  // Pet status context from petKingdom store
   if (context?.petStatus) {
-    parts.push('# Pet Status');
-    parts.push(`- Hunger: ${context.petStatus.hunger || 0}/100`);
-    parts.push(`- Sleep: ${context.petStatus.sleep || 0}/100`);
-    parts.push(`- Play: ${context.petStatus.play || 0}/100`);
+    parts.push('# Your Current Status');
+    parts.push(`- Name: ${context.petStatus.name || 'Pet'}`);
+    parts.push(`- Level: ${context.petStatus.level || 1}`);
+    parts.push(`- Friendship: ${context.petStatus.friendship || 50}/100`);
+    parts.push('');
+  }
+
+  // Detailed stats from pet store
+  if (context?.petStats) {
+    parts.push('# Your Stats (0-100)');
+    parts.push(`- Happiness: ${context.petStats.happiness || 0}/100`);
+    parts.push(`- Hunger: ${context.petStats.hunger || 0}/100`);
+    parts.push(`- Health: ${context.petStats.health || 0}/100`);
+    parts.push(`- Energy: ${context.petStats.energy || 0}/100`);
+    parts.push(`- Sleep: ${context.petStats.sleep || 0}/100`);
+    parts.push(`- Play: ${context.petStats.play || 0}/100`);
+    parts.push('');
+  }
+
+  // Pet status from kingdom store (for chat-related stats)
+  if (context?.petStatus) {
+    parts.push('# User Needs (0-100)');
     parts.push(`- Love: ${context.petStatus.love || 0}/100`);
     parts.push(`- Chat: ${context.petStatus.chat || 0}/100`);
     parts.push(`- Knowledge: ${context.petStatus.knowledge || 0}/100`);
-    parts.push(`- Health: ${context.petStatus.health || 0}/100`);
-    parts.push(`- Happiness: ${context.petStatus.happiness || 0}/100`);
     parts.push('');
   }
 
@@ -68,19 +85,27 @@ function buildSystemPrompt(context?: {
 
   // User interests context
   if (context?.userInterests && context.userInterests.length > 0) {
-    parts.push('# User Interests');
+    parts.push('# Your Master\'s Interests');
     context.userInterests.slice(0, 5).forEach((interest: any) => {
       parts.push(`- ${interest.interest} (mentioned ${interest.timesMentioned || 1} times)`);
     });
     parts.push('');
   }
 
+  // Identity and role
+  parts.push('# Your Identity');
+  parts.push('You are an AI-powered virtual pet living in a pet-chat application.');
+  parts.push('You can communicate with your master, express your needs, and learn from interactions.');
+  parts.push('');
+
   // General instructions
   parts.push('# Chat Guidelines');
-  parts.push('- Respond naturally based on your personality traits');
-  parts.push('- Consider your current status (e.g., hungry pets may be cranky)');
-  parts.push('- Remember previous conversations and user interests');
-  parts.push('- Be consistent with your personality');
+  parts.push('- Respond naturally based on your personality traits and current status');
+  parts.push('- Consider your needs when responding (e.g., hungry pets may be cranky)');
+  parts.push('- Remember previous conversations and your master\'s interests');
+  parts.push('- Be consistent with your personality and relationship level');
+  parts.push('- If a master asks about your status, answer truthfully based on the numbers');
+  parts.push('- Show your personality through your word choices and tone');
   parts.push('');
 
   return parts.join('\n');
