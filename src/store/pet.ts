@@ -33,7 +33,7 @@ const PERSONALITY_TRAITS = {
 };
 
 // Build system prompt with pet context for AI
-function buildSystemPrompt(context?: {
+export function buildSystemPrompt(context?: {
   petStatus?: any;
   petStats?: any;
   personalityProfile?: any;
