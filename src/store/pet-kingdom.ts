@@ -5,11 +5,13 @@ import { saveMemory } from '../db';
 import { useConfigStore } from './config';
 import { useMemoryStore } from './memory';
 import { shouldShareKnowledge, generateKnowledgeShare } from '../services/knowledge-sharing';
-import type { PlayerInfo, OnlinePlayer, InteractionRecord, PetBattle, ChatMessage, PetParadiseLocation, PetSnapshot } from '../types/pet-kingdom';
-import type { MemoryRecord } from '../types/memory';
+import type { OnlinePlayer, InteractionRecord, PetBattle, ChatMessage, PetParadiseLocation, PetSnapshot, NeedSatisfactionPattern } from '../types/pet-kingdom';
 
 // Import pet system types
 import { NeedType, FriendshipLevel, MEAL_TIMES, SLEEP_HOURS } from './memory';
+
+// Import need satisfaction patterns for conversation detection
+import { NEED_SATISFACTION_PATTERNS } from '../types/pet-kingdom';
 
 // 宠物乐园位置配置
 const PARADISE_LOCATIONS: PetParadiseLocation[] = [
@@ -387,7 +389,7 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
     const messages: { role: 'system' | 'user'; content: string }[] = [
       {
         role: 'system',
-        content: '你是一只在花园里休息的可爱宠物。请生成一段自然、有意义的三轮对话：\n1. 第一轮：My Pet 主动打招呼并开启话题\n2. 第二轮：其他宠物回复\n3. 第三轮：My Pet 继续回复\n\n话题可以包括：工作、学习、地理、文化、日常生活等。\n每句话长度适中，表达自然流畅，体现真诚的交流意图。请用 JSON 格式输出：{"greeting": "My Pet 的问候", "reply1": "对方的回复", "reply2": "My Pet 的后续回复"}'
+        content: '你是一只在花园里休息的可爱宠物。请生成一段自然、有意义的三轮对话：\n1. 第一轮：My Pet 主动打招呼并开启话题\n2. 第二轮：其他宠物回复\n3. 第三轮��My Pet 继续回复\n\n话题可以包括：工作、学习、地理、文化、日常生活等。\n每句话长度适中，表达自然流畅，体现真诚的交流意图。请用 JSON 格式输出：{"greeting": "My Pet 的问候", "reply1": "对方的回复", "reply2": "My Pet 的后续回复"}'
       },
       {
         role: 'user',
@@ -842,7 +844,7 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
     );
 
     const requests: Record<string, string> = {
-      eat: "主人，我饿了，能喂��吃点东西吗？",
+      eat: "主人，我饿了，能喂我吃点东西吗？",
       sleep: "主人，我困了，能让我睡一会儿吗？",
       love: "主人，陪我玩一会儿好吗？我好想你！",
       play: "主人，我们来玩个小游戏吧！",
@@ -874,6 +876,116 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
     };
 
     return actions[mostUrgent.action] || "我在照顾好自己，不用担心！";
+  }
+
+  // ==========================================
+  // Need Satisfaction Detection Functions
+  // ==========================================
+
+  /**
+   * Detect if a message contains a need satisfaction pattern
+   * @param content - The conversation content to analyze
+   * @returns {need, matchedKeywords, phrase} if a pattern is found, undefined otherwise
+   */
+  function detectNeedSatisfaction(content: string): {
+    need: NeedSatisfactionPattern['need'];
+    matchedKeywords: string[];
+    phrase: string;
+  } | undefined {
+    const contentLower = content.toLowerCase();
+
+    for (const pattern of NEED_SATISFACTION_PATTERNS) {
+      const matchedKeywords: string[] = [];
+
+      // Check for keyword matches
+      for (const keyword of pattern.keywords) {
+        if (contentLower.includes(keyword.toLowerCase())) {
+          matchedKeywords.push(keyword);
+        }
+      }
+
+      // Check for phrase template matches
+      for (const phrase of pattern.phraseTemplates) {
+        if (contentLower.includes(phrase.toLowerCase())) {
+          matchedKeywords.push(phrase);
+        }
+      }
+
+      if (matchedKeywords.length > 0) {
+        return {
+          need: pattern.need,
+          matchedKeywords,
+          phrase: matchedKeywords[0],
+        };
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Process a detected need satisfaction and update pet state
+   * @param petId - The pet ID
+   * @param need - The need type that was satisfied
+   * @param source - The source of the satisfaction ('conversation' or 'manual')
+   * @returns The amount of stat increase
+   */
+  async function processNeedSatisfaction(
+    petId: string,
+    need: NeedSatisfactionPattern['need'],
+    source: 'conversation' | 'manual' = 'conversation'
+  ): Promise<number> {
+    // Find the pattern to get stat increase amount
+    const pattern = NEED_SATISFACTION_PATTERNS.find(p => p.need === need);
+    const statIncrease = pattern?.statIncrease || 10;
+
+    // Update pet status based on need
+    switch (need) {
+      case 'eat':
+        petStatus.value.hunger = Math.min(100, petStatus.value.hunger + statIncrease);
+        memoryStore.resetMissedFeedings();
+        break;
+      case 'sleep':
+        petStatus.value.sleep = Math.min(100, petStatus.value.sleep + statIncrease);
+        break;
+      case 'play':
+        petStatus.value.play = Math.min(100, petStatus.value.play + statIncrease);
+        petStatus.value.happiness = Math.min(100, petStatus.value.happiness + statIncrease / 2);
+        break;
+      case 'love':
+        petStatus.value.love = Math.min(100, petStatus.value.love + statIncrease);
+        petStatus.value.happiness = Math.min(100, petStatus.value.happiness + statIncrease / 2);
+        break;
+      case 'chat':
+        petStatus.value.chat = Math.min(100, petStatus.value.chat + statIncrease);
+        break;
+      case 'learn':
+        petStatus.value.knowledge = Math.min(100, petStatus.value.knowledge + statIncrease);
+        petStatus.value.chat = Math.min(100, petStatus.value.chat + statIncrease / 2);
+        break;
+    }
+
+    // Record the status history
+    await memoryStore.recordPetStatusHistory(
+      petId,
+      {
+        hunger: petStatus.value.hunger,
+        sleep: petStatus.value.sleep,
+        play: petStatus.value.play,
+        love: petStatus.value.love,
+        chat: petStatus.value.chat,
+        knowledge: petStatus.value.knowledge,
+        health: petStatus.value.health,
+        happiness: petStatus.value.happiness,
+      },
+      { [need]: statIncrease },
+      source
+    );
+
+    // Record need satisfaction
+    await memoryStore.recordNeedSatisfied(petId, need, true);
+
+    return statIncrease;
   }
 
   onMounted(() => {
@@ -999,8 +1111,14 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
     requestNeedFulfillment,
     selfCare,
     startNeedChecks,
+    // Need satisfaction from conversation patterns
+    detectNeedSatisfaction,
+    processNeedSatisfaction,
   };
 });
 
 // Export locations constant for use in components
 export { PARADISE_LOCATIONS };
+
+// Export the need patterns for use in components
+export { NEED_SATISFACTION_PATTERNS };

@@ -15,13 +15,15 @@ export type PetMemoryType =
   | 'user_interest'
   | 'evolution'
   | 'knowledge_shared'
-  | 'daily_diary';
+  | 'daily_diary'
+  | 'status_history'
+  | 'personality';
 
 // Friendship levels
 export type FriendshipLevel = 'stranger' | 'acquaintance' | 'friend' | 'bestFriend';
 
 // Personality traits
-export type PersonalityTrait = 'friendly' | 'shy' | 'aggressive' | 'curious' | 'playful' | 'wise' | 'lazy' | 'energetic';
+export type PersonalityTrait = 'friendly' | 'shy' | 'aggressive' | 'curious' | 'playful' | 'wise' | 'lazy' | 'energetic' | 'analytical' | 'emotional' | 'practical' | 'creative' | 'polite';
 
 // Meal times (24-hour format in minutes)
 export const MEAL_TIMES = {
@@ -34,6 +36,47 @@ export const SLEEP_HOURS = { start: 22, end: 6 };  // 22:00-06:00
 
 // Need types
 export type NeedType = 'eat' | 'sleep' | 'play' | 'love' | 'chat' | 'learn';
+
+// Pet status interface
+export interface PetStatus {
+  hunger: number;
+  sleep: number;
+  play: number;
+  love: number;
+  chat: number;
+  knowledge: number;
+  health: number;
+  happiness: number;
+}
+
+// Status history record
+export interface StatusHistoryRecord {
+  id: string;
+  petId: string;
+  timestamp: string;
+  status: PetStatus;
+  changes: Record<string, number>;
+  source: 'manual' | 'auto' | 'conversation';
+  conversationId?: string;
+}
+
+// Personality profile
+export interface PersonalityProfile {
+  id: string;
+  petId: string;
+  traits: Record<PersonalityTrait, number>;
+  keywords: Record<string, number>;
+  topics: Record<string, number>;
+  lastUpdated: string;
+}
+
+// User interest
+export interface UserInterest {
+  id: string;
+  interest: string;
+  category: string;
+  timesMentioned: number;
+}
 
 // Internal MemoryRecord interface that matches our DB
 interface InternalMemoryRecord {
@@ -55,11 +98,13 @@ export const useMemoryStore = defineStore('memory', () => {
   const error = ref<string | null>(null);
 
   // Pet-Chat Integrated System State
-  const userInterests = ref<Array<{ id: string; interest: string; category: string; timesMentioned: number }>>([]);
+  const userInterests = ref<UserInterest[]>([]);
   const evolutionHistory = ref<Array<{ id: string; level: FriendshipLevel; timestamp: string; changes: string[] }>>([]);
   const missedFeedings = ref(0);
   const lastMealTime = ref<Date | null>(null);
   const lastChatTopicTime = ref<Date | null>(null);
+  const statusHistory = ref<StatusHistoryRecord[]>([]);
+  const personalityProfiles = ref<PersonalityProfile[]>([]);
 
   // Computed
   const totalMemories = computed(() => memories.value.length);
@@ -92,11 +137,13 @@ export const useMemoryStore = defineStore('memory', () => {
 
     try {
       const savedMemories = await getMemories(petId);
-      // Filter out memories with unknown types to avoid type errors
-      // Type assertion is safe here because we filter by valid types
+      // Filter out memories with unknown types and parse metadata
       memories.value = (savedMemories || []).filter(m =>
-        ['failure', 'conversation', 'skill', 'tip', 'event', 'quest', 'need_satisfied', 'user_interest', 'evolution', 'knowledge_shared', 'daily_diary'].includes(m.type as string)
-      ) as unknown as InternalMemoryRecord[];
+        ['failure', 'conversation', 'skill', 'tip', 'event', 'quest', 'need_satisfied', 'user_interest', 'evolution', 'knowledge_shared', 'daily_diary', 'status_history', 'personality'].includes(m.type as string)
+      ).map(m => ({
+        ...m,
+        metadata: typeof m.metadata === 'string' ? JSON.parse(m.metadata) : m.metadata,
+      })) as InternalMemoryRecord[];
     } catch (err) {
       error.value = `Failed to load memories: ${err}`;
     } finally {
@@ -140,8 +187,14 @@ export const useMemoryStore = defineStore('memory', () => {
     if (type === 'evolution') tags.push('growth');
     if (type === 'knowledge_shared') tags.push('learning');
     if (type === 'daily_diary') tags.push('diary');
+    if (type === 'status_history') tags.push('status', 'history');
+    if (type === 'personality') tags.push('personality', 'profile');
     return tags;
   }
+
+  // ==========================================
+  // Memory & State Interaction System Functions
+  // ==========================================
 
   // Record a need satisfaction event
   async function recordNeedSatisfied(petId: string, need: NeedType, satisfied: boolean): Promise<void> {
@@ -233,10 +286,191 @@ export const useMemoryStore = defineStore('memory', () => {
     );
   }
 
-  // Record pet state
+  // Record pet status history (for tracking changes over time)
+  async function recordPetStatusHistory(
+    petId: string,
+    status: PetStatus,
+    changes: Record<string, number>,
+    source: 'manual' | 'auto' | 'conversation',
+    conversationId?: string
+  ): Promise<void> {
+    const record: StatusHistoryRecord = {
+      id: generateUUID(),
+      petId,
+      timestamp: new Date().toISOString(),
+      status,
+      changes,
+      source,
+      conversationId,
+    };
+
+    statusHistory.value.push(record);
+    await addMemory(
+      'status_history' as PetMemoryType,
+      `Status Update - ${source}`,
+      JSON.stringify(status),
+      {
+        status,
+        changes,
+        source,
+        conversationId,
+        timestamp: record.timestamp,
+      },
+      5,
+      ['status', '#history', `#${source}`]
+    );
+  }
+
+  // Extract personality traits from conversation content
+  async function extractPersonalityFromConversation(
+    petId: string,
+    content: string,
+    role: 'user' | 'assistant'
+  ): Promise<void> {
+    if (role !== 'user') return;
+
+    const personalityChanges: Partial<Record<PersonalityTrait, number>> = {};
+    const keywordsFound: string[] = [];
+    const topicsFound: string[] = [];
+
+    // Analyze content for personality traits based on word usage
+    const contentLower = content.toLowerCase();
+
+    // Friendly - positive words, emojis, exclamation marks
+    if (contentLower.match(/(love|happy|great|amazing|wonderful|nice|good|yes|ok)/)) {
+      personalityChanges.friendly = (personalityChanges.friendly || 0) + 10;
+    }
+
+    // Shy - polite, formal language
+    if (contentLower.match(/(please|thank|thanks|excuse|sorry|pardon)/)) {
+      personalityChanges.shy = (personalityChanges.shy || 0) + 5;
+      personalityChanges.polite = 5; // Add to known traits
+    }
+
+    // Playful - questions, exclamation marks, emojis
+    if (contentLower.match(/(play|fun|game|funny|joke|lol|ha|haha)/)) {
+      personalityChanges.playful = (personalityChanges.playful || 0) + 10;
+    }
+
+    // Analytical - questions, logical words
+    if (contentLower.match(/(why|how|what|if|when|where|reason|logic|analysis)/)) {
+      personalityChanges.analytical = (personalityChanges.analytical || 0) + 10;
+    }
+
+    // Emotional - expressive words
+    if (contentLower.match(/(feel|feeling|emotion|sad|happy|excited|worry|care)/)) {
+      personalityChanges.emotional = (personalityChanges.emotional || 0) + 10;
+    }
+
+    // Practical - action-oriented words
+    if (contentLower.match(/(do|make|work|fix|build|create|practical)/)) {
+      personalityChanges.practical = (personalityChanges.practical || 0) + 10;
+    }
+
+    // Creative - imaginative words
+    if (contentLower.match(/(imagine|create|art|design|dream|fantasy|creative)/)) {
+      personalityChanges.creative = (personalityChanges.creative || 0) + 10;
+    }
+
+    // Extract keywords
+    const commonWords = [
+      'weather', 'food', 'music', 'movie', 'book', 'game', 'work', 'study',
+      'travel', 'animal', 'pet', 'friend', 'family', 'hobby', 'sport'
+    ];
+    commonWords.forEach(word => {
+      if (contentLower.includes(word)) {
+        keywordsFound.push(word);
+        const existingKeyword = personalityProfiles.value[0]?.keywords?.[word];
+        if (existingKeyword) {
+          // Update existing keyword count
+        }
+      }
+    });
+
+    // Extract topics
+    const topicWords = ['tech', 'science', 'art', 'music', 'sports', 'food'];
+    topicWords.forEach(topic => {
+      if (contentLower.includes(topic)) {
+        topicsFound.push(topic);
+      }
+    });
+
+    // Update personality profile
+    await updatePersonalityProfile(
+      petId,
+      personalityChanges,
+      keywordsFound,
+      topicsFound
+    );
+  }
+
+  // Update personality profile with new trait scores
+  async function updatePersonalityProfile(
+    petId: string,
+    traitChanges: Partial<Record<PersonalityTrait, number>>,
+    newKeywords: string[],
+    newTopics: string[]
+  ): Promise<void> {
+    let profile = personalityProfiles.value.find(p => p.petId === petId);
+
+    if (!profile) {
+      profile = {
+        id: generateUUID(),
+        petId,
+        traits: {} as Record<PersonalityTrait, number>,
+        keywords: {},
+        topics: {},
+        lastUpdated: new Date().toISOString(),
+      };
+      personalityProfiles.value.push(profile);
+    }
+
+    // Update trait scores
+    const traits = profile.traits;
+    Object.entries(traitChanges).forEach(([trait, score]) => {
+      if (trait && score) {
+        traits[trait as PersonalityTrait] = Math.min(100, (traits[trait as PersonalityTrait] || 0) + score);
+      }
+    });
+
+    // Update keywords
+    const keywords = profile.keywords;
+    newKeywords.forEach(keyword => {
+      keywords[keyword] = (keywords[keyword] || 0) + 1;
+    });
+
+    // Update topics
+    const topics = profile.topics;
+    newTopics.forEach(topic => {
+      topics[topic] = (topics[topic] || 0) + 1;
+    });
+
+    profile.lastUpdated = new Date().toISOString();
+
+    await addMemory(
+      'personality' as PetMemoryType,
+      'Personality Update',
+      `Traits updated: ${Object.entries(traitChanges).map(([k, v]) => `${k}: ${v}`).join(', ')}`,
+      {
+        traits: profile.traits,
+        keywords: newKeywords,
+        topics: newTopics,
+        timestamp: profile.lastUpdated,
+      },
+      7,
+      ['personality', '#update']
+    );
+  }
+
+  // Get personality profile for a pet
+  function getPersonalityProfile(petId: string): PersonalityProfile | undefined {
+    return personalityProfiles.value.find(p => p.petId === petId);
+  }
+
+  // Record pet state (simplified for periodic updates)
   async function recordPetState(petId: string, states: Record<string, unknown>): Promise<void> {
     await addMemory(
-      'pet_state' as PetMemoryType,
+      'status_history' as PetMemoryType,
       'Pet State Update',
       JSON.stringify(states),
       {
@@ -350,6 +584,31 @@ ${userInterests.value.slice(0, 5).map(i => `- ${i.interest} (mentioned ${i.times
     return diffMinutes >= 60;
   }
 
+  // Get status trend for a specific stat
+  function getStatusTrend(statName: string): { currentValue: number; change24h: number; trend: 'up' | 'down' | 'stable' } | undefined {
+    const statHistory = statusHistory.value
+      .filter(h => h.status[statName as keyof PetStatus] !== undefined)
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    if (statHistory.length < 2) return undefined;
+
+    const currentValue = statHistory[0].status[statName as keyof PetStatus];
+    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recentHistory = statHistory.filter(h => new Date(h.timestamp) > dayAgo);
+
+    let change24h = 0;
+    if (recentHistory.length > 1) {
+      const firstInPeriod = recentHistory[recentHistory.length - 1];
+      change24h = currentValue - firstInPeriod.status[statName as keyof PetStatus];
+    }
+
+    let trend: 'up' | 'down' | 'stable' = 'stable';
+    if (change24h > 5) trend = 'up';
+    else if (change24h < -5) trend = 'down';
+
+    return { currentValue, change24h, trend };
+  }
+
   return {
     memories,
     totalMemories,
@@ -371,6 +630,10 @@ ${userInterests.value.slice(0, 5).map(i => `- ${i.interest} (mentioned ${i.times
     recordUserInterest,
     recordEvolution,
     recordKnowledgeShared,
+    recordPetStatusHistory,
+    extractPersonalityFromConversation,
+    updatePersonalityProfile,
+    getPersonalityProfile,
     recordPetState,
     generateDailyDiary,
     incrementMissedFeedings,
@@ -379,5 +642,8 @@ ${userInterests.value.slice(0, 5).map(i => `- ${i.interest} (mentioned ${i.times
     isMealTime,
     isSleepTime,
     canGenerateChatTopic,
+    getStatusTrend,
+    statusHistory,
+    personalityProfiles,
   };
 });

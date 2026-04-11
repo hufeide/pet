@@ -50,6 +50,16 @@
       </div>
     </div>
 
+    <!-- Need Satisfaction Notification -->
+    <div v-if="needSatisfactionNotification" class="need-satisfaction-notification">
+      <span class="notification-icon">✨</span>
+      <div class="notification-content">
+        <span class="notification-text">{{ needSatisfactionNotification.text }}</span>
+        <span class="notification-subtext">+{{ needSatisfactionNotification.increase }}% {{ needSatisfactionNotification.needLabel }}</span>
+      </div>
+      <button class="notification-close" @click="closeNeedSatisfactionNotification">×</button>
+    </div>
+
     <div class="chat-history" ref="chatHistoryRef">
       <div
         v-for="message in visibleMessages"
@@ -161,6 +171,82 @@ const needConfig = computed(() => [
 const helpModalNeed = ref<string | null>(null);
 const isHelpModalOpen = ref(false);
 
+// Need satisfaction notification
+interface NeedSatisfaction {
+  text: string;
+  needLabel: string;
+  increase: number;
+  timestamp: number;
+}
+
+const needSatisfactionNotification = ref<NeedSatisfaction | null>(null);
+
+// Detect need satisfaction in user input
+function detectNeedSatisfaction(content: string) {
+  const contentLower = content.toLowerCase();
+
+  // Patterns for each need type
+  const patterns: Record<string, { keywords: string[]; label: string }> = {
+    hunger: {
+      keywords: ['喂', '食物', '吃', 'hungry', 'hunger', 'feed', 'food', 'meal'],
+      label: 'Hunger',
+    },
+    sleep: {
+      keywords: ['睡觉', '休息', 'sleep', 'rest', 'bed', 'nap'],
+      label: 'Sleep',
+    },
+    play: {
+      keywords: ['玩', '游戏', 'play', 'game', 'fun', 'entertain', 'toy'],
+      label: 'Play',
+    },
+    love: {
+      keywords: ['爱', '喜欢', 'love', 'like', 'affection', 'hug', 'kiss'],
+      label: 'Love',
+    },
+    chat: {
+      keywords: ['聊天', 'chat', 'talk', 'conversation', 'speak'],
+      label: 'Chat',
+    },
+    knowledge: {
+      keywords: ['学习', '知识', 'learn', 'study', 'knowledge', 'education', 'teach'],
+      label: 'Knowledge',
+    },
+  };
+
+  for (const [need, pattern] of Object.entries(patterns)) {
+    for (const keyword of pattern.keywords) {
+      if (contentLower.includes(keyword.toLowerCase())) {
+        return { need, label: pattern.label };
+      }
+    }
+  }
+
+  return null;
+}
+
+// Process need satisfaction and update pet state
+async function processNeedSatisfaction(need: string, label: string) {
+  const { processNeedSatisfaction: processNeed } = await import('../store/pet-kingdom');
+  const increase = await processNeed('default', need as any, 'conversation');
+
+  needSatisfactionNotification.value = {
+    text: `You satisfied ${label} need!`,
+    needLabel: label,
+    increase,
+    timestamp: Date.now(),
+  };
+
+  // Auto-hide notification after 3 seconds
+  setTimeout(() => {
+    needSatisfactionNotification.value = null;
+  }, 3000);
+}
+
+// Close need satisfaction notification
+function closeNeedSatisfactionNotification() {
+  needSatisfactionNotification.value = null;
+}
+
 const visibleMessages = computed(() => {
   const history = petStore.chatHistory;
   const max = props.maxHistory || 50;
@@ -200,6 +286,12 @@ function sendMessage() {
       errorMessage.value = null;
     }, 5000);
   });
+
+  // Check for need satisfaction patterns in user input
+  const detectedNeed = detectNeedSatisfaction(messageContent);
+  if (detectedNeed) {
+    processNeedSatisfaction(detectedNeed.need, detectedNeed.label);
+  }
 }
 
 function closeErrorToast() {
