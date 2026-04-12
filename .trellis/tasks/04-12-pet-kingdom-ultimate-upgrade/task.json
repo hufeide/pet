@@ -1,0 +1,53 @@
+{
+  "id": "pet-kingdom-ultimate-upgrade",
+  "name": "pet-kingdom-ultimate-upgrade",
+  "title": "Pet Kingdom Ultimate Upgrade",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "priority": "P2",
+  "creator": "feide",
+  "assignee": "feide",
+  "createdAt": "2026-04-12",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "fix/chat-pet-features",
+  "worktree_path": null,
+  "current_phase": 0,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "04-12-emotion-engine",
+    "04-12-autonomous-goals",
+    "04-12-env-awareness",
+    "04-12-memory-synthesis",
+    "04-12-dynamic-avatar",
+    "04-12-visual-stats",
+    "04-12-timeline-memory",
+    "04-12-interactive-kingdom"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
