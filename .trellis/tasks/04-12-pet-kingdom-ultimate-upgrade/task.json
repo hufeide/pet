@@ -37,7 +37,6 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "04-12-env-awareness",
     "04-12-memory-synthesis",
     "04-12-dynamic-avatar",
     "04-12-visual-stats",
