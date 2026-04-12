@@ -478,7 +478,7 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
   const lastShareTime = ref<Date | null>(null);
 
   // Autonomous goals array
-  const goals = ref<Array<{ id: string; petId: string; type: string; title: string; description: string; targetValue: number; currentProgress: number; status: string; createdAt: string; completedAt?: string; cancelledAt?: string; priority: number }>>([]);
+  const goals = ref<Array<{ id: string; petId: string; type: string; title: string; description: string; targetValue: number; currentProgress: number; status: string; createdAt: string; completedAt?: string; cancelledAt?: string; priority: number; metadata?: Record<string, unknown> }>>([]);
 
   // Interval timer
   let needCheckInterval: number | null = null;
@@ -1361,7 +1361,7 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
     title: string,
     description: string,
     targetValue: number,
-    priority: number = 50
+    priority = 50
   ): void {
     const goal = {
       id: generateGoalId(),
@@ -1397,3 +1397,135 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
       }
     }
   }
+
+  function getActiveGoals(): Array<{ id: string; petId: string; type: string; title: string; description: string; targetValue: number; currentProgress: number; status: string; createdAt: string; completedAt?: string; cancelledAt?: string; priority: number }> {
+    return goals.value.filter(g => g.status === 'active' || g.status === 'pending');
+  }
+
+  function getPendingGoals(): Array<{ id: string; petId: string; type: string; title: string; description: string; targetValue: number; currentProgress: number; status: string; createdAt: string; completedAt?: string; cancelledAt?: string; priority: number }> {
+    return goals.value.filter(g => g.status === 'pending');
+  }
+
+  function getCompletedGoals(): Array<{ id: string; petId: string; type: string; title: string; description: string; targetValue: number; currentProgress: number; status: string; createdAt: string; completedAt?: string; cancelledAt?: string; priority: number }> {
+    return goals.value.filter(g => g.status === 'completed');
+  }
+
+  function updateGoalProgress(goalId: string, progress: number): void {
+    const goal = goals.value.find(g => g.id === goalId);
+    if (goal) {
+      goal.currentProgress = Math.min(100, Math.max(0, progress));
+      if (goal.currentProgress >= 100 && goal.status !== 'completed') {
+        goal.status = 'completed' as const;
+        goal.completedAt = new Date().toISOString();
+      }
+    }
+  }
+
+  function generateGoalFromNeed(needType: NeedType): {
+    id: string;
+    petId: string;
+    type: string;
+    title: string;
+    description: string;
+    targetValue: number;
+    currentProgress: number;
+    status: string;
+    createdAt: string;
+    priority: number;
+  } | null {
+    const needValue = petStatus.value[needType === 'eat' ? 'hunger' : needType === 'learn' ? 'knowledge' : needType];
+
+    // Only create goal if need is critical (< 50)
+    if (needValue >= 50) return null;
+
+    const goalType = needType === 'eat' ? 'learn' : needType === 'sleep' ? 'rest' : needType === 'play' ? 'play' : needType === 'love' ? 'social' : needType === 'chat' ? 'social' : 'learn';
+
+    const goalTitles: Record<string, string> = {
+      learn: '学习新知识',
+      social: '社交互动',
+      play: '玩耍娱乐',
+      rest: '休息恢复',
+      explore: '探索乐园',
+    };
+
+    const goalDescriptions: Record<string, string> = {
+      learn: '通过学习提高知识水平',
+      social: '与其他宠物互动建立友谊',
+      play: '通过游戏增加快乐感',
+      rest: '休息恢复能量',
+      explore: '探索宠物乐园的新区域',
+    };
+
+    return {
+      id: generateGoalId(),
+      petId: 'default',
+      type: goalType,
+      title: goalTitles[goalType] || '完成目标',
+      description: goalDescriptions[goalType] || '完成一个自主目标',
+      targetValue: 100,
+      currentProgress: 0,
+      status: 'pending' as const,
+      createdAt: new Date().toISOString(),
+      priority: Math.max(1, 100 - needValue),
+    };
+  }
+
+  return {
+    // Pet Kingdom
+    currentLocation,
+    onlinePlayers,
+    interactionHistory,
+    petBattles,
+    chatHistory,
+    myPetSnapshot,
+    isLoading,
+    error,
+    playerCount,
+    interactionCount,
+    battleCount,
+    chatMessageCount,
+    gardenChatHistory,
+    gardenChatCount,
+    setLocation,
+    interact,
+    sendChatMessage,
+    challengeBattle,
+    greetPlayer,
+    generateGardenConversation,
+    sendGardenMessage,
+    getMasterInfo,
+    // Pet Status
+    petStatus,
+    updateEmotion,
+    feedPet,
+    putPetToSleep,
+    playWithPet,
+    showAffection,
+    chatWithPet,
+    learnTopic,
+    checkNeeds,
+    tryShareKnowledge,
+    generateChatTopic,
+    generateDailyDiary,
+    getEvolutionChanges,
+    requestNeedFulfillment,
+    selfCare,
+    // Need Satisfaction
+    detectNeedSatisfaction,
+    processNeedSatisfaction,
+    // Autonomous Goals
+    goals,
+    setGoal,
+    completeGoal,
+    cancelGoal,
+    getActiveGoals,
+    getPendingGoals,
+    getCompletedGoals,
+    updateGoalProgress,
+    generateGoalFromNeed,
+  };
+});
+
+export { PARADISE_LOCATIONS };
+export { NEED_SATISFACTION_PATTERNS };
+

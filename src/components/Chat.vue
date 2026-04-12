@@ -346,15 +346,6 @@ interface FloatChange {
   timestamp: number;
 }
 
-const floatChanges = ref<Record<string, number>>({});
-
-function showFloatChange(key: string, value: number) {
-  floatChanges.value[key] = value;
-  setTimeout(() => {
-    delete floatChanges.value[key];
-  }, 1500);
-}
-
 // Action handler for interactive tags
 function handleAction(action: 'feed' | 'sleep' | 'play' | 'love' | 'learn') {
   let statKey: string = '';
