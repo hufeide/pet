@@ -16,8 +16,15 @@ Improve the jump physics in the Adventure Game to allow the player to jump diago
   - Potentially add a "jump boost" to horizontal velocity when the jump is initiated to make diagonal jumps more pronounced.
   - Review `src/store/adventure.ts` lines 246-250 and 293-296.
 
-## Acceptance Criteria
-- [ ] Player can jump and move right simultaneously, resulting in an upward-right arc.
-- [ ] Player can jump and move left simultaneously, resulting in an upward-left arc.
-- [ ] Jumping without horizontal input still results in a vertical jump.
-- [ ] Collision detection continues to work correctly during diagonal jumps.
+## Acceptance Criteria ✅ COMPLETED
+
+### Core Requirements
+- [x] Player can jump and move right simultaneously, resulting in an upward-right arc.
+- [x] Player can jump and move left simultaneously, resulting in an upward-left arc.
+- [x] Jumping without horizontal input still results in a vertical jump.
+- [x] Collision detection continues to work correctly during diagonal jumps.
+
+### Implementation Notes
+- Jump logic modified in `src/store/adventure.ts` lines 272-303
+- Added `jumpBoost` parameter (0.2) for diagonal trajectory
+- Horizontal velocity is adjusted during jump to create natural arc
