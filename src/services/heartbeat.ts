@@ -51,8 +51,8 @@ class HeartbeatService {
     }
     this.timer = window.setInterval(() => this.tick(), CONFIG.intervalMs);
     console.log('[HeartbeatService] Started (10-min interval)');
-    // Run immediately on start
-    this.tick();
+    // Note: Do not run immediately on start to avoid instant death on page load
+    // The first tick will run after the interval (10 minutes)
   }
 
   stop() {
