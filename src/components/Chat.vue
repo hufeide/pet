@@ -312,12 +312,16 @@ const knowledgeShareInterval = ref<number | null>(null);
 // Profile update interval (for periodic user preference extraction)
 const profileUpdateInterval = ref<number | null>(null);
 
-// Need configuration with help content - using full rules from NeedHelpModal
-const needConfig = computed(() => [
+// Main stats configuration (happiness, hunger, health, energy)
+const mainStats = [
   { key: 'happiness' as const, label: '❤️ Happiness' },
   { key: 'hunger' as const, label: '🍗 Hunger' },
   { key: 'health' as const, label: '❤️ Health' },
   { key: 'energy' as const, label: '⚡ Energy' },
+];
+
+// Need configuration with help content - using full rules from NeedHelpModal
+const needConfig = computed(() => [
   { key: 'sleep' as const, label: '💤 Sleep' },
   { key: 'play' as const, label: '⚽ Play' },
   { key: 'love' as const, label: '💖 Love' },
@@ -339,12 +343,6 @@ interface NeedSatisfaction {
 
 const needSatisfactionNotification = ref<NeedSatisfaction | null>(null);
 
-// Floating text for stat increases
-interface FloatChange {
-  key: string;
-  value: number;
-  timestamp: number;
-}
 
 // Action handler for interactive tags
 function handleAction(action: 'feed' | 'sleep' | 'play' | 'love' | 'learn') {

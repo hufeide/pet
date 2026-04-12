@@ -11,12 +11,11 @@ import type {
   InteractionRecord,
   PetBattle,
   PetParadiseLocation,
-  PetSnapshot,
   NeedSatisfactionPattern,
 } from '../types/pet-kingdom';
 
 // Import pet system types
-import { NeedType, FriendshipLevel, MEAL_TIMES, SLEEP_HOURS } from './memory';
+import { NeedType, FriendshipLevel } from './memory';
 import { PetEmotion, EMOTION_MAP } from '../types/pet-kingdom';
 
 // Import need satisfaction patterns for conversation detection
@@ -90,7 +89,6 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
   const interactionHistory = ref<InteractionRecord[]>([]);
   const petBattles = ref<PetBattle[]>([]);
   const chatHistory = ref<{ id: string; senderId: string; senderName: string; content: string; timestamp: string; isSystem?: boolean }[]>([]);
-  const myPetSnapshot = ref<PetSnapshot | null>(null);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
 
@@ -103,9 +101,6 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
   // 花园聊天记录
   const gardenChatHistory = ref<{ id: string; senderId: string; senderName: string; content: string; timestamp: string }[]>([]);
   const gardenChatCount = ref(0); // 花园聊天计数
-
-  // LLM client
-  const configStore = useConfigStore();
 
   // Pet needs system - using memory store for state management
   const memoryStore = useMemoryStore();
@@ -1477,7 +1472,6 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
     interactionHistory,
     petBattles,
     chatHistory,
-    myPetSnapshot,
     isLoading,
     error,
     playerCount,

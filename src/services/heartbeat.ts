@@ -80,10 +80,6 @@ class HeartbeatService {
     const petStatus = petKingdomStore.petStatus;
     const now = new Date();
     const currentHour = now.getHours();
-    const currentMinutes = currentHour * 60 + now.getMinutes();
-
-    // Track current emotion for decay logic
-    const currentEmotion = petStatus.currentEmotion;
 
     // Circadian rhythm checks
     const isMealTime = memoryStore.isMealTime();
