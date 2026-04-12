@@ -59,8 +59,8 @@ export interface PetParadiseLocation {
   capacity: number;
 }
 
-// 聊天消息
-export interface ChatMessage {
+// 花园聊天消息
+export interface GardenChatMessage {
   id: string;
   senderId: string;
   senderName: string;
@@ -69,8 +69,46 @@ export interface ChatMessage {
   isSystem?: boolean;
 }
 
+// 宠物情绪状态
+export type PetEmotion = 'Excited' | 'Melancholy' | 'Anxious' | 'Lazy' | 'Neutral';
+
+// 情绪映射配置
+export const EMOTION_MAP: Record<PetEmotion, { emoji: string; label: string; prompt: string; altEmojis: string[] }> = {
+  Excited: {
+    emoji: '✨',
+    label: '兴奋',
+    prompt: 'Use more exclamation marks and emojis. Be overly enthusiastic. Show high energy and eagerness.',
+    altEmojis: ['🤩', '🎉', '⚡']
+  },
+  Melancholy: {
+    emoji: '🌧️',
+    label: '忧郁',
+    prompt: 'Be quiet and slightly sad. Use soft, gentle language. May ask for comfort. Show low energy.',
+    altEmojis: ['😔', '💔', '🌧️']
+  },
+  Anxious: {
+    emoji: '😰',
+    label: '焦虑',
+    prompt: 'Use ellipses (...), express uncertainty or worry. Show nervousness and need for reassurance.',
+    altEmojis: ['🌀', '😖', '💭']
+  },
+  Lazy: {
+    emoji: '💤',
+    label: '慵懒',
+    prompt: 'Be terse, act like you are yawning, avoid complex topics. Show low energy and preference for rest.',
+    altEmojis: ['🥱', '😴', '🛌']
+  },
+  Neutral: {
+    emoji: '🙂',
+    label: '平静',
+    prompt: 'Maintain a balanced and natural tone. Be friendly and responsive without extreme emotions.',
+    altEmojis: ['😌', '🙂', '🐾']
+  },
+};
+
 // 宠物状态快照
 export interface PetSnapshot {
+
   petId: string;
   level: number;
   name: string;
@@ -126,7 +164,7 @@ export interface PetStatusHistory {
 }
 
 // Personality traits that can be extracted from user behavior
-export type PersonalityTrait =
+export type PetPersonalityTrait =
   | 'friendly'
   | 'shy'
   | 'aggressive'
@@ -146,7 +184,7 @@ export type PersonalityTrait =
 export interface PersonalityProfile {
   id: string;
   petId: string;
-  traits: Record<PersonalityTrait, number>; // Score 0-100 for each trait
+  traits: Record<PetPersonalityTrait, number>; // Score 0-100 for each trait
   keywords: Record<string, number>; // Words frequently used by user
   topics: Record<string, number>; // Topics user frequently discusses
   lastUpdated: string;
@@ -155,7 +193,7 @@ export interface PersonalityProfile {
 // Personality extraction from conversation
 export interface PersonalityExtraction {
   petId: string;
-  traits: Partial<Record<PersonalityTrait, number>>;
+  traits: Partial<Record<PetPersonalityTrait, number>>;
   keywords: string[];
   topics: string[];
   confidence: number; // 0-100
@@ -211,6 +249,13 @@ export interface ConversationContext {
   recentHistory: PetStatusHistory[];
   userInterests: string[];
   personality: PersonalityProfile;
+}
+
+// Self-care action result
+export interface SelfCareResult {
+  action: string;
+  message: string;
+  statIncreased?: string;
 }
 
 // Need satisfaction phrase configurations
@@ -288,3 +333,30 @@ export const NEED_SATISFACTION_PATTERNS: NeedSatisfactionPattern[] = [
     description: 'Satisfies knowledge need',
   },
 ];
+
+// ==========================================
+// Autonomous Goals Types
+// ==========================================
+
+// Goal types for autonomous pursuit
+export type GoalType = 'learn' | 'social' | 'play' | 'rest' | 'explore';
+
+// Goal status
+export type GoalStatus = 'pending' | 'active' | 'completed' | 'cancelled';
+
+// Autonomous goal for pet to pursue
+export interface Goal {
+  id: string;
+  petId: string;
+  type: GoalType;
+  title: string;
+  description: string;
+  targetValue: number; // Target stat value for completion
+  currentProgress: number; // Current progress (0-100)
+  status: GoalStatus;
+  createdAt: string;
+  completedAt?: string;
+  cancelledAt?: string;
+  priority: number; // Based on urgency
+  metadata?: Record<string, unknown>;
+}

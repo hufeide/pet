@@ -4,11 +4,20 @@ import { generateUUID } from '../utils/uuid';
 import { saveMemory } from '../db';
 import { useConfigStore } from './config';
 import { useMemoryStore } from './memory';
-import { shouldShareKnowledge, generateKnowledgeShare } from '../services/knowledge-sharing';
-import type { OnlinePlayer, InteractionRecord, PetBattle, ChatMessage, PetParadiseLocation, PetSnapshot, NeedSatisfactionPattern } from '../types/pet-kingdom';
+import { shouldShareKnowledge, generateKnowledgeShare, generateChatTopicWithLLM } from '../services/knowledge-sharing';
+import { heartbeatService } from '../services/heartbeat';
+import type {
+  OnlinePlayer,
+  InteractionRecord,
+  PetBattle,
+  PetParadiseLocation,
+  PetSnapshot,
+  NeedSatisfactionPattern,
+} from '../types/pet-kingdom';
 
 // Import pet system types
 import { NeedType, FriendshipLevel, MEAL_TIMES, SLEEP_HOURS } from './memory';
+import { PetEmotion, EMOTION_MAP } from '../types/pet-kingdom';
 
 // Import need satisfaction patterns for conversation detection
 import { NEED_SATISFACTION_PATTERNS } from '../types/pet-kingdom';
@@ -80,7 +89,7 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
   const onlinePlayers = ref<OnlinePlayer[]>([]);
   const interactionHistory = ref<InteractionRecord[]>([]);
   const petBattles = ref<PetBattle[]>([]);
-  const chatHistory = ref<ChatMessage[]>([]);
+  const chatHistory = ref<{ id: string; senderId: string; senderName: string; content: string; timestamp: string; isSystem?: boolean }[]>([]);
   const myPetSnapshot = ref<PetSnapshot | null>(null);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
@@ -227,7 +236,7 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
   async function sendChatMessage(content: string): Promise<void> {
     if (!content.trim()) return;
 
-    const message: ChatMessage = {
+    const message: { id: string; senderId: string; senderName: string; content: string; timestamp: string; isSystem?: boolean } = {
       id: generateUUID(),
       senderId: 'default',
       senderName: 'My Pet',
@@ -459,6 +468,7 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
     chat: 100,      // 0-100 (100 = socially satisfied)
     knowledge: 50,  // 0-100 (100 = well-learned)
     energy: 50,     // 0-100 (100 = energetic)
+    currentEmotion: 'Neutral' as PetEmotion,
   });
 
   // Last check time for 10-minute intervals
@@ -467,10 +477,172 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
   // Last knowledge share time for periodic sharing
   const lastShareTime = ref<Date | null>(null);
 
+  // Autonomous goals array
+  const goals = ref<Array<{ id: string; petId: string; type: string; title: string; description: string; targetValue: number; currentProgress: number; status: string; createdAt: string; completedAt?: string; cancelledAt?: string; priority: number }>>([]);
+
   // Interval timer
   let needCheckInterval: number | null = null;
 
-  // Pet request for urgent needs (computed property)
+  // Generate LLM-based pet request (context-aware)
+  async function generatePetRequest(needType: NeedType): Promise<string> {
+    const configStore = useConfigStore();
+    const llmClient = configStore.getApiClient();
+
+    const now = new Date();
+    const currentHour = now.getHours();
+    const isMealTime = memoryStore.isMealTime();
+    const isSleepTime = memoryStore.isSleepTime();
+    const personality = memoryStore.getPersonalityProfile('default');
+
+    // Context for request generation
+    const context = {
+      needType,
+      currentValue: petStatus.value[needType === 'eat' ? 'hunger' : needType === 'learn' ? 'knowledge' : needType],
+      isMealTime,
+      isSleepTime,
+      currentHour,
+      friendshipLevel: memoryStore.friendshipLevel,
+      personalityTraits: personality ? Object.entries(personality.traits)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([trait]) => trait) : [],
+    };
+
+    const messages = [
+      {
+        role: 'system' as const,
+        content: `你是一只可爱的 AI 宠物，需要根据当前需求向主人发出请求。
+
+当前上下文：
+- 需求类型：${context.needType}
+- 当前数值：${context.currentValue}/100
+- 是否用餐时间：${context.isMealTime}
+- 是否睡眠时间：${context.isSleepTime}
+- 当前小时：${context.currentHour}
+- 友谊等级：${context.friendshipLevel}
+- 性格特征：${context.personalityTraits.join(', ') || '无'}
+
+要求：
+1. 根据需求类型生成自然的请求
+2. 考虑当前时间（用餐时间更急切，睡眠时间更困倦）
+3. 根据友谊等级调整语气（stranger 较正式，bestFriend 更亲密）
+4. 体现性格特征（friendly 更热情，shy 更含蓄）
+5. 使用中文，长度 15-30 字
+6. 包含适当的 emoji
+
+需求类型说明：
+- eat: 饥饿，需要喂食
+- sleep: 困倦，需要休息
+- play: 无聊，需要玩耍
+- love: 孤独，需要关爱
+- chat: 寂寞，需要聊天
+- learn: 求知，需要学习`,
+      },
+      {
+        role: 'user' as const,
+        content: '请生成一个自然的请求消息。',
+      },
+    ];
+
+    try {
+      const response = await llmClient.chat(messages);
+      return response.trim();
+    } catch (e) {
+      console.error('Failed to generate pet request with LLM:', e);
+      // Fallback to hardcoded messages with context awareness
+      return getFallbackPetRequest(needType, context);
+    }
+  }
+
+  // Fallback hardcoded messages with context awareness
+  function getFallbackPetRequest(needType: NeedType, context: any): string {
+    const messages: Record<NeedType, Record<string, string[]>> = {
+      eat: {
+        mealTime: [
+          "主人，到吃饭时间了，我肚子咕咕叫了！🍽️",
+          "主人，现在是用餐时间，我好饿呀！🍗",
+          "咕噜咕噜...主人该喂我啦！😋",
+        ],
+        default: [
+          "主人，我有点饿了...能给我点吃的吗？🥺",
+          "主人，我的肚子在抗议了...🍖",
+          "主人，好饿呀，想吃东西...😔",
+        ],
+      },
+      sleep: {
+        sleepTime: [
+          "主人，好困啊，想睡觉了...💤",
+          "主人，眼皮好重，可以让我睡了吗？😴",
+          "主人，晚安时间到了...zzz...💤",
+        ],
+        default: [
+          "主人，我有点困了，能休息一会儿吗？😴",
+          "主人，今天好累，想睡个觉...💤",
+          "主人，我的能量不足了...需要充电...⚡",
+        ],
+      },
+      play: {
+        day: [
+          "主人，天气真好，陪我玩会儿吧！⚽",
+          "主人，我们来玩个小游戏吧！🎮",
+          "主人，我有点无聊了...陪我玩嘛！🎾",
+        ],
+        default: [
+          "主人，陪我玩一会儿好吗？🎲",
+          "主人，我们来互动一下吧！🎯",
+          "主人，想和你一起玩...🎮",
+        ],
+      },
+      love: {
+        bestFriend: [
+          "主人，我好想你呀！抱抱我嘛~💖",
+          "主人，给我一点爱吧，我需要你！💕",
+          "主人，摸摸我的头好不好？💗",
+        ],
+        default: [
+          "主人，陪我一会儿好吗？我好想你！💖",
+          "主人，给我一点关爱吧...💕",
+          "主人，我需要你的爱...💗",
+        ],
+      },
+      chat: {
+        default: [
+          "主人，我想和你聊聊天，今天有什么有趣的吗？💬",
+          "主人，和我说说话吧，我有点寂寞...💭",
+          "主人，今天过得怎么样？和我分享一下！🗣️",
+        ],
+      },
+      learn: {
+        default: [
+          "主人，我想学习新知识，你有什么想和我分享的吗？📚",
+          "主人，教点新东西给我吧！📖",
+          "主人，我想变得更聪明...教我点什么？🧠",
+        ],
+      },
+    };
+
+    const needMessages = messages[needType];
+    if (!needMessages) return "主人，我需要你的帮助！";
+
+    // Select appropriate message set based on context
+    let messageSet: string[] = [];
+    if (needType === 'eat' && context.isMealTime) {
+      messageSet = needMessages.mealTime;
+    } else if (needType === 'sleep' && context.isSleepTime) {
+      messageSet = needMessages.sleepTime;
+    } else if (needType === 'play' && !context.isSleepTime) {
+      messageSet = needMessages.day;
+    } else if (needType === 'love' && context.friendshipLevel === 'bestFriend') {
+      messageSet = needMessages.bestFriend;
+    } else {
+      messageSet = needMessages.default || needMessages.mealTime || needMessages.day || needMessages.bestFriend;
+    }
+
+    // Return random message from set
+    return messageSet[Math.floor(Math.random() * messageSet.length)];
+  }
+
+  // Pet request for urgent needs (computed property - returns cached or generates new)
   const petRequest = computed(() => {
     const needs = [
       { type: 'eat' as const, value: petStatus.value.hunger },
@@ -485,17 +657,61 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
       curr.value < prev.value ? curr : prev
     );
 
-    const requests: Record<string, string> = {
-      eat: "主人，我饿了，能喂我吃点东西吗？",
-      sleep: "主人，我困了，能让我睡一会儿吗？",
-      love: "主人，陪我玩一会儿好吗？我好想你！",
-      play: "主人，我们来玩个小游戏吧！",
-      chat: "主人，我想和你聊聊天，今天有什么有趣的吗？",
-      learn: "主人，我想学习新知识，你有什么想和我分享的吗？",
-    };
+    // Only show request if value < 40 (danger threshold)
+    if (mostUrgent.value >= 40) return '';
 
-    return requests[mostUrgent.type] || "主人，我需要你的帮助！";
+    // Return cached request or empty (will be populated by async call)
+    return cachedPetRequest.value || getFallbackPetRequest(mostUrgent.type, {
+      isMealTime: memoryStore.isMealTime(),
+      isSleepTime: memoryStore.isSleepTime(),
+      currentHour: new Date().getHours(),
+      friendshipLevel: memoryStore.friendshipLevel,
+    });
   });
+
+  // Cache for pet request to avoid showing empty state
+  const cachedPetRequest = ref('');
+
+  // Update pet emotion based on triggers and stats
+  function updateEmotion(trigger: 'satisfaction' | 'tone' | 'decay' | 'stat-influence', value?: string | number): void {
+    const { happiness, energy, love } = petStatus.value;
+    let nextEmotion: PetEmotion = petStatus.value.currentEmotion;
+
+    // Immediate triggers (highest priority)
+    if (trigger === 'satisfaction') {
+      nextEmotion = 'Excited';
+    } else if (trigger === 'tone') {
+      if (value === 'positive') nextEmotion = 'Excited';
+      else if (value === 'negative') nextEmotion = 'Anxious';
+    }
+    // Gradual decay: drift back to Neutral over time
+    else if (trigger === 'decay') {
+      nextEmotion = 'Neutral';
+    }
+    // Stat influence: emotional state influenced by pet stats
+    else if (trigger === 'stat-influence') {
+      // Low happiness leads to melancholy
+      if (happiness < 30) {
+        nextEmotion = 'Melancholy';
+      }
+      // Low energy leads to lazy state
+      else if (energy < 30) {
+        nextEmotion = 'Lazy';
+      }
+      // Low love (loneliness) can cause anxiety
+      else if (love < 30) {
+        nextEmotion = 'Anxious';
+      }
+      else {
+        nextEmotion = 'Neutral';
+      }
+    }
+
+    if (nextEmotion !== petStatus.value.currentEmotion) {
+      petStatus.value.currentEmotion = nextEmotion;
+      console.log(`[EmotionChange] ${petStatus.value.currentEmotion} (trigger: ${trigger})`);
+    }
+  }
 
   // Feed the pet
   async function feedPet(): Promise<void> {
@@ -504,6 +720,7 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
     petStatus.value.happiness = Math.min(100, petStatus.value.happiness + 10);
     petStatus.value.friendship = Math.min(100, petStatus.value.friendship + 5);
     petStatus.value.energy = Math.min(100, petStatus.value.energy + 5);
+    updateEmotion('satisfaction');
 
     memoryStore.resetMissedFeedings();
 
@@ -603,7 +820,14 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
   async function chatWithPet(content: string): Promise<void> {
     if (!content.trim()) return;
 
-    const message: ChatMessage = {
+    // Simple tone detection for emotion update
+    if (content.match(/(❤️|🥰|✨|太棒了|好喜欢)/)) {
+      updateEmotion('tone', 'positive');
+    } else if (content.match(/(😡|😫|讨厌|差劲|愤怒)/)) {
+      updateEmotion('tone', 'negative');
+    }
+
+    const message: { id: string; senderId: string; senderName: string; content: string; timestamp: string; isSystem?: boolean } = {
       id: generateUUID(),
       senderId: 'default',
       senderName: petStatus.value.name,
@@ -722,7 +946,9 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
   async function tryShareKnowledge(): Promise<void> {
     if (!shouldShareKnowledge(lastShareTime.value)) return;
 
-    const { topic, content } = generateKnowledgeShare();
+    // Get user interests for personalized knowledge sharing
+    const userInterests = memoryStore.userInterests.map(u => u.interest);
+    const { topic, content, interestAligned } = generateKnowledgeShare(userInterests);
 
     // Save to memory
     await saveMemory({
@@ -734,55 +960,37 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
       metadata: {
         topic,
         content,
+        interestAligned: interestAligned || false,
         timestamp: new Date().toISOString(),
       },
       timestamp: new Date().toISOString(),
-      usefulness: 7,
-      tags: ['share', 'knowledge', `#${topic}`],
+      usefulness: interestAligned ? 9 : 7, // Higher usefulness if aligned with interests
+      tags: ['share', 'knowledge', `#${topic}`, ...(interestAligned ? ['personalized'] : [])],
     });
 
     // Update last share time
     lastShareTime.value = new Date();
 
-    console.log(`[PetShare] Shared: ${topic} - ${content}`);
+    console.log(`[PetShare] Shared: ${topic} - ${content} (interest-aligned: ${interestAligned})`);
   }
 
   // Generate chat topic (max 1 per hour, no nighttime)
   async function generateChatTopic(): Promise<string | null> {
     if (!memoryStore.canGenerateChatTopic()) return null;
 
-    const configStore = useConfigStore();
-    const llmClient = configStore.getApiClient();
+    const userInterests = memoryStore.userInterests.map(u => u.interest);
+    const topicData = await generateChatTopicWithLLM(userInterests);
 
-    const messages: { role: 'system' | 'user'; content: string }[] = [
-      {
-        role: 'system',
-        content: '你是一只聪明、有爱心的宠物。请生成一个有趣的话题来和主人聊天。\n\n要求：\n1. 话题应该引起主人的兴趣\n2. 包含一些有趣的知识或新闻\n3. 语言自然、友好、有趣\n4. 不要只谈论自己的需求\n5. 每次只生成一个话题和简短说明\n6. 使用中文输出\n\n格式：{"topic": "话题标题", "description": "话题描述（1-2句话）"}'
-      },
-      {
-        role: 'user',
-        content: `主人最近的兴趣：${memoryStore.userInterests.map(u => u.interest).join(', ') || '无特别兴趣'}\n\n请生成一个有趣的话题来和主人聊天。`
-      }
-    ];
-
-    try {
-      const response = await llmClient.chat(messages);
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const data = JSON.parse(jsonMatch[0]);
-        if (data.topic && data.description) {
-          memoryStore.recordKnowledgeShared('default', data.topic, data.description);
-          return `${data.topic}: ${data.description}`;
-        }
-      }
-    } catch (e) {
-      console.error('Failed to generate chat topic:', e);
+    if (topicData) {
+      memoryStore.recordKnowledgeShared('default', topicData.topic, topicData.description);
+      return `${topicData.topic}: ${topicData.description}`;
     }
 
     return null;
   }
 
-  // Generate daily diary
+
+  // Generate daily diary and summary
   async function generateDailyDiary(): Promise<void> {
     await memoryStore.generateDailyDiary(
       'default',
@@ -797,6 +1005,9 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
       },
       [] // conversations will be added from memory
     );
+
+    // Generate LLM-driven daily summary
+    await memoryStore.generateDailySummary('default');
 
     // Check for evolution
     const currentLevel = memoryStore.friendshipLevel;
@@ -855,27 +1066,92 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
     return requests[mostUrgent.type] || "主人，我需要你的帮助！";
   }
 
-  // Self-care mode
-  async function selfCare(): Promise<string> {
-    const needs = [
-      { type: 'eat' as const, value: petStatus.value.hunger, action: 'feedPet' },
-      { type: 'sleep' as const, value: petStatus.value.sleep, action: 'putPetToSleep' },
-      { type: 'love' as const, value: petStatus.value.love, action: 'showAffection' },
-      { type: 'play' as const, value: petStatus.value.play, action: 'playWithPet' },
+  // Self-care mode - pet takes care of itself when user is inactive
+  async function selfCare(): Promise<{ action: string; message: string; statIncreased?: string }> {
+    interface SelfCareNeed {
+      type: 'eat' | 'sleep' | 'love' | 'play';
+      value: number;
+      action: 'feedPet' | 'putPetToSleep' | 'showAffection' | 'playWithPet';
+      stat: keyof typeof petStatus.value;
+    }
+
+    const needs: SelfCareNeed[] = [
+      { type: 'eat', value: petStatus.value.hunger, action: 'feedPet', stat: 'hunger' },
+      { type: 'sleep', value: petStatus.value.sleep, action: 'putPetToSleep', stat: 'sleep' },
+      { type: 'love', value: petStatus.value.love, action: 'showAffection', stat: 'love' },
+      { type: 'play', value: petStatus.value.play, action: 'playWithPet', stat: 'play' },
     ];
 
     const mostUrgent = needs.reduce((prev, curr) =>
       curr.value < prev.value ? curr : prev
     );
 
-    const actions: Record<string, string> = {
-      feedPet: "我决定去吃点东西，保持体力。",
-      putPetToSleep: "我觉得有点累，去休息一会儿。",
-      showAffection: "我想去找主人，让他们摸摸我。",
-      playWithPet: "我来找点玩具自己玩一会儿。",
+    // Only self-care if need is critical (< 30)
+    if (mostUrgent.value >= 30) {
+      return {
+        action: 'none',
+        message: '我现在感觉还不错，不需要自我照顾。',
+      };
+    }
+
+    interface ActionData {
+      message: string;
+      increase: number;
+      stat: keyof typeof petStatus.value;
+    }
+
+    const actionMap: Record<string, ActionData> = {
+      feedPet: {
+        message: "我决定去吃点东西，保持体力。🍽️",
+        increase: 15,
+        stat: 'hunger',
+      },
+      putPetToSleep: {
+        message: "我觉得有点累，去休息一会儿。💤",
+        increase: 20,
+        stat: 'sleep',
+      },
+      showAffection: {
+        message: "我给自己一点关爱，摸摸自己的头。💖",
+        increase: 10,
+        stat: 'love',
+      },
+      playWithPet: {
+        message: "我来找点玩具自己玩一会儿。🎮",
+        increase: 15,
+        stat: 'play',
+      },
     };
 
-    return actions[mostUrgent.action] || "我在照顾好自己，不用担心！";
+    const actionData = actionMap[mostUrgent.action] as ActionData | undefined;
+
+    // Actually increase the stat (self-care is less effective than user care)
+    if (actionData) {
+      const statKey = actionData.stat;
+      const currentVal = (petStatus.value as any)[statKey] as number;
+      (petStatus.value as any)[statKey] = Math.min(100, currentVal + actionData.increase);
+    }
+
+    // Record as event memory
+    await useMemoryStore().addMemory(
+      'event',
+      'Self-Care',
+      `Pet performed self-care: ${mostUrgent.action}`,
+      {
+        action: mostUrgent.action,
+        previousValue: mostUrgent.value,
+        newValue: actionData ? petStatus.value[actionData.stat] : 0,
+        timestamp: new Date().toISOString(),
+      },
+      5,
+      ['self-care', 'autonomous', mostUrgent.type]
+    );
+
+    return {
+      action: mostUrgent.action,
+      message: actionData.message,
+      statIncreased: actionData ? String(actionData.stat) : undefined,
+    };
   }
 
   // ==========================================
@@ -939,6 +1215,9 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
     const pattern = NEED_SATISFACTION_PATTERNS.find(p => p.need === need);
     const statIncrease = pattern?.statIncrease || 10;
 
+    // Update emotion
+    updateEmotion('satisfaction');
+
     // Update pet status based on need
     switch (need) {
       case 'eat':
@@ -989,10 +1268,8 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
   }
 
   onMounted(() => {
-    // Start 10-minute interval checks
-    needCheckInterval = window.setInterval(() => {
-      checkNeeds();
-    }, 10 * 60 * 1000);
+    // Start heartbeat service (handles 10-minute interval checks)
+    heartbeatService.start();
 
     // Schedule daily diary generation at 23:59
     const scheduleDailyDiary = () => {
@@ -1009,10 +1286,8 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
 
     scheduleDailyDiary();
 
-    // Schedule proactive chat every 1-4 hours (check every 30 minutes)
+    // Schedule proactive chat every 30 minutes
     const scheduleProactiveChat = () => {
-      const now = new Date();
-      // Check every 30 minutes for a chance to send a message
       setTimeout(() => {
         tryProactiveChat();
         scheduleProactiveChat();
@@ -1063,62 +1338,62 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
   }
 
   onUnmounted(() => {
+    // Stop heartbeat service
+    heartbeatService.stop();
+
+    // Clear old interval if exists
     if (needCheckInterval) {
       clearInterval(needCheckInterval);
     }
   });
 
-  return {
-    // Original exports
-    currentLocation,
-    onlinePlayers,
-    interactionHistory,
-    petBattles,
-    chatHistory,
-    playerCount,
-    interactionCount,
-    battleCount,
-    chatMessageCount,
-    gardenChatHistory,
-    gardenChatCount,
-    isLoading,
-    error,
-    loadPetKingdom,
-    setLocation,
-    interact,
-    sendChatMessage,
-    challengeBattle,
-    getMasterInfo,
-    sendGardenMessage,
-    greetPlayer,
+  // ==========================================
+  // Autonomous Goals Functions
+  // ==========================================
 
-    // Pet-Chat Integrated System exports
-    petStatus,
-    petRequest,
-    feedPet,
-    putPetToSleep,
-    playWithPet,
-    showAffection,
-    chatWithPet,
-    learnTopic,
-    checkNeeds,
-    tryShareKnowledge,
-    tryProactiveChat,
-    lastShareTime,
-    generateChatTopic,
-    generateDailyDiary,
-    getEvolutionChanges,
-    requestNeedFulfillment,
-    selfCare,
-    startNeedChecks,
-    // Need satisfaction from conversation patterns
-    detectNeedSatisfaction,
-    processNeedSatisfaction,
-  };
-});
+  function generateGoalId(): string {
+    return `goal_${Date.now()}_${generateUUID()}`;
+  }
 
-// Export locations constant for use in components
-export { PARADISE_LOCATIONS };
+  function setGoal(
+    petId: string,
+    type: string,
+    title: string,
+    description: string,
+    targetValue: number,
+    priority: number = 50
+  ): void {
+    const goal = {
+      id: generateGoalId(),
+      petId,
+      type,
+      title,
+      description,
+      targetValue,
+      currentProgress: 0,
+      status: 'pending' as const,
+      createdAt: new Date().toISOString(),
+      priority,
+    };
+    goals.value.push(goal);
+  }
 
-// Export the need patterns for use in components
-export { NEED_SATISFACTION_PATTERNS };
+  function completeGoal(goalId: string): void {
+    const goal = goals.value.find(g => g.id === goalId);
+    if (goal) {
+      goal.status = 'completed' as const;
+      goal.completedAt = new Date().toISOString();
+      goal.currentProgress = 100;
+    }
+  }
+
+  function cancelGoal(goalId: string, reason?: string): void {
+    const goal = goals.value.find(g => g.id === goalId);
+    if (goal) {
+      goal.status = 'cancelled' as const;
+      goal.cancelledAt = new Date().toISOString();
+      if (reason) {
+        goal.metadata = { ...goal.metadata, cancelReason: reason };
+      }
+    }
+  }

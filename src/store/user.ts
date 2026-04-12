@@ -105,8 +105,9 @@ export const useUserStore = defineStore('user', () => {
   }
 
   // Extract user preferences from conversation content
-  function extractPreferencesFromConversation(content: string): string[] {
+  function extractPreferencesFromConversation(content: string): { preferences: string[]; dislikes: string[] } {
     const preferences: string[] = [];
+    const dislikes: string[] = [];
     const contentLower = content.toLowerCase();
 
     // Food preferences
@@ -126,14 +127,25 @@ export const useUserStore = defineStore('user', () => {
     }
 
     // Music preferences
-    const musicKeywords = ['rock', 'pop', 'jazz', 'classical', 'hip hop', ' electronic', 'country', 'rap'];
+    const musicKeywords = ['rock', 'pop', 'jazz', 'classical', 'hip hop', 'electronic', 'country', 'rap'];
     for (const keyword of musicKeywords) {
       if (contentLower.includes(keyword)) {
         preferences.push(keyword);
       }
     }
 
-    return preferences;
+    // Dislike detection (negative sentiment indicators)
+    const negativeKeywords = ['hate', 'dislike', 'avoid', 'skip', 'never', "don't like", 'not fond'];
+    for (const keyword of negativeKeywords) {
+      if (contentLower.includes(keyword)) {
+        const match = contentLower.match(new RegExp(keyword + '\\s+(\\w+)'));
+        if (match) {
+          dislikes.push(match[1]);
+        }
+      }
+    }
+
+    return { preferences, dislikes };
   }
 
   // Extract user dislikes from conversation content
@@ -146,7 +158,7 @@ export const useUserStore = defineStore('user', () => {
     for (const keyword of negativeKeywords) {
       if (contentLower.includes(keyword)) {
         // Try to extract the following word as the dislike
-        const match = contentLower.match(new RegExp(`${keyword}\\s+(\\w+)`));
+        const match = contentLower.match(new RegExp(keyword + '\\s+(\\w+)'));
         if (match) {
           dislikes.push(match[1]);
         }

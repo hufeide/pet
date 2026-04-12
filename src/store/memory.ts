@@ -16,6 +16,7 @@ export type PetMemoryType =
   | 'evolution'
   | 'knowledge_shared'
   | 'daily_diary'
+  | 'daily_summary'
   | 'status_history'
   | 'personality';
 
@@ -107,8 +108,45 @@ export const useMemoryStore = defineStore('memory', () => {
   const personalityProfiles = ref<PersonalityProfile[]>([]);
   const userProfiles = ref<import('../store/user').UserProfile[]>([]);
 
-  // Computed
-  const totalMemories = computed(() => memories.value.length);
+  // Grouped memories by date and category
+  const groupedMemories = computed(() => {
+    const groups: Record<string, {
+      chat: InternalMemoryRecord[],
+      share: InternalMemoryRecord[],
+      others: InternalMemoryRecord[],
+      summary?: InternalMemoryRecord
+    }> = {};
+
+    // Sort memories by timestamp descending
+    const sorted = [...memories.value].sort((a, b) =>
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+
+    sorted.forEach(m => {
+      const date = m.timestamp.split('T')[0];
+      if (!groups[date]) {
+        groups[date] = { chat: [], share: [], others: [] };
+      }
+
+      if (m.type === 'daily_summary') {
+        groups[date].summary = m;
+      } else if (['conversation', 'need_satisfied', 'user_interest'].includes(m.type)) {
+        groups[date].chat.push(m);
+      } else if (['knowledge_shared', 'tip', 'skill'].includes(m.type)) {
+        groups[date].share.push(m);
+      } else {
+        groups[date].others.push(m);
+      }
+    });
+
+    return groups;
+  });
+
+  // Get formatted date groups for the UI
+  const dateGroups = computed(() => {
+    return Object.keys(groupedMemories.value).sort().reverse();
+  });
+
   const memoriesByType = computed(() => {
     const byType: Record<string, number> = {};
     memories.value.forEach(m => {
@@ -122,13 +160,84 @@ export const useMemoryStore = defineStore('memory', () => {
     return total / memories.value.length;
   });
 
-  // Get current friendship level
+  // Get current friendship level (multi-factor)
   const friendshipLevel = computed((): FriendshipLevel => {
+    // Multi-factor scoring:
+    // 1. Daily diaries written (persistence)
+    // 2. Total interactions (chat messages + need satisfactions)
+    // 3. Knowledge shared count (learning)
+    // 4. Need satisfaction ratio (care)
+
     const totalDiaries = memories.value.filter(m => m.type === 'daily_diary').length;
-    if (totalDiaries < 1) return 'stranger';
-    if (totalDiaries < 3) return 'acquaintance';
-    if (totalDiaries < 7) return 'friend';
+    const totalInteractions = memories.value.filter(m => m.type === 'conversation' || m.type === 'need_satisfied').length;
+    const knowledgeShared = memories.value.filter(m => m.type === 'knowledge_shared').length;
+
+    // Calculate composite score
+    const diaryScore = totalDiaries * 10;        // 10 points per diary
+    const interactionScore = totalInteractions * 2; // 2 points per interaction
+    const knowledgeScore = knowledgeShared * 5;    // 5 points per knowledge share
+
+    const totalScore = diaryScore + interactionScore + knowledgeScore;
+
+    // Evolution thresholds (multi-factor):
+    // Stranger → Acquaintance: 1 diary + 10 interactions = 10 + 20 = 30 points
+    // Acquaintance → Friend: 3 diaries + 30 interactions = 30 + 60 = 90 points
+    // Friend → BestFriend: 7 diaries + 100 interactions = 70 + 200 = 270 points
+
+    if (totalScore < 30) return 'stranger';
+    if (totalScore < 90) return 'acquaintance';
+    if (totalScore < 270) return 'friend';
     return 'bestFriend';
+  });
+
+  // Get detailed friendship stats for UI display
+  const friendshipStats = computed((): {
+    currentLevel: FriendshipLevel;
+    score: number;
+    nextLevel: FriendshipLevel | null;
+    nextLevelThreshold: number;
+    progress: number; // 0-100
+  } => {
+    const totalDiaries = memories.value.filter(m => m.type === 'daily_diary').length;
+    const totalInteractions = memories.value.filter(m => m.type === 'conversation' || m.type === 'need_satisfied').length;
+    const knowledgeShared = memories.value.filter(m => m.type === 'knowledge_shared').length;
+
+    const diaryScore = totalDiaries * 10;
+    const interactionScore = totalInteractions * 2;
+    const knowledgeScore = knowledgeShared * 5;
+    const totalScore = diaryScore + interactionScore + knowledgeScore;
+
+    const thresholds = {
+      stranger: 0,
+      acquaintance: 30,
+      friend: 90,
+      bestFriend: 270,
+    };
+
+    const levels: FriendshipLevel[] = ['stranger', 'acquaintance', 'friend', 'bestFriend'];
+    const currentIndex = levels.findIndex((level, index) => {
+      const nextIndex = index + 1;
+      return totalScore >= thresholds[level] && (nextIndex >= levels.length || totalScore < thresholds[levels[nextIndex]]);
+    });
+
+    const currentLevel = levels[currentIndex];
+    const nextLevel = currentIndex < levels.length - 1 ? levels[currentIndex + 1] : null;
+    const nextThreshold = nextLevel ? thresholds[nextLevel] : Infinity;
+    const prevThreshold = thresholds[currentLevel];
+
+    // Calculate progress to next level (0-100)
+    const range = nextThreshold - prevThreshold;
+    const progress = nextLevel
+      ? Math.min(100, Math.max(0, ((totalScore - prevThreshold) / range) * 100))
+      : 100;
+
+    return {
+      currentLevel,
+      score: totalScore,
+      nextLevel,
+      nextLevelThreshold: nextThreshold,
+      progress,
+    };
   });
 
   // Actions
@@ -542,6 +651,109 @@ ${userInterests.value.slice(0, 5).map(i => `- ${i.interest} (mentioned ${i.times
     return diaryContent;
   }
 
+  // Generate daily summary using LLM
+  async function generateDailySummary(petId: string): Promise<void> {
+    // Get today's conversations
+    const today = new Date().toISOString().split('T')[0];
+    const todayMemories = memories.value.filter(m =>
+      m.timestamp.startsWith(today) && m.type === 'conversation'
+    );
+
+    if (todayMemories.length === 0) {
+      // No conversations today, create a basic summary
+      await addMemory(
+        'daily_summary' as PetMemoryType,
+        `Summary - ${today}`,
+        'Today was a quiet day with no major conversations.',
+        {
+          date: today,
+          conversationCount: 0,
+          timestamp: new Date().toISOString(),
+        },
+        8,
+        ['summary', '#daily']
+      );
+      return;
+    }
+
+    // Get user interests and evolution level for context
+    const userInterestsList = userInterests.value.map(i => i.interest).slice(0, 5);
+    const currentFriendshipLevel = friendshipLevel.value;
+
+    // Build conversation summaries
+    const conversationSummaries = todayMemories.map(m => ({
+      topic: m.title.replace('Chat: ', ''),
+      content: m.content,
+    }));
+
+    try {
+      const { useConfigStore } = await import('@/store/config');
+      const configStore = useConfigStore();
+      const llmClient = configStore.getApiClient();
+
+      const messages = [
+        {
+          role: 'system' as const,
+          content: `你是一只可爱的 AI 宠物。请根据今天的对话生成一份简洁的每日摘要。
+
+要求：
+1. 总结今天的主要话题和有趣的事情
+2. 提及用户的主要兴趣
+3. 表达今天的心情和与主人的互动
+4. 预测明天的期望
+5. 使用中文输出
+6. 长度在 100-200 字之间
+7. 包含适当的情感表达和 emoji`,
+        },
+        {
+          role: 'user' as const,
+          content: `今天是 ${today}。
+
+我的兴趣：${userInterestsList.join(', ') || '无记录'}
+友谊等级：${currentFriendshipLevel}
+
+今天的对话：
+${conversationSummaries.map((c, i) => `${i + 1}. ${c.topic}: ${c.content}`).join('\n')}
+
+请生成一份简洁的每日摘要：`,
+        },
+      ];
+
+      const response = await llmClient.chat(messages);
+
+      await addMemory(
+        'daily_summary' as PetMemoryType,
+        `Summary - ${today}`,
+        response.trim(),
+        {
+          date: today,
+          conversationCount: conversationSummaries.length,
+          interests: userInterestsList,
+          friendshipLevel: currentFriendshipLevel,
+          timestamp: new Date().toISOString(),
+        },
+        9,
+        ['summary', '#daily']
+      );
+    } catch (e) {
+      console.error('Failed to generate daily summary with LLM:', e);
+      // Fallback to template-based summary
+      await addMemory(
+        'daily_summary' as PetMemoryType,
+        `Summary - ${today}`,
+        `今天与主人进行了 ${todayMemories.length} 次对话。主要话题包括：${conversationSummaries.slice(0, 3).map(c => c.topic).join('、') || '日常生活'}。今天感觉 ${currentFriendshipLevel === 'bestFriend' ? '非常开心' : '开心'}！`,
+        {
+          date: today,
+          conversationCount: conversationSummaries.length,
+          fallback: true,
+          timestamp: new Date().toISOString(),
+        },
+        7,
+        ['summary', '#daily']
+      );
+    }
+  }
+
   // Increment missed feedings counter
   function incrementMissedFeedings(): void {
     missedFeedings.value++;
@@ -694,9 +906,11 @@ ${userInterests.value.slice(0, 5).map(i => `- ${i.interest} (mentioned ${i.times
 
   return {
     memories,
-    totalMemories,
+    totalMemories: computed(() => memories.value.length),
     memoriesByType,
     averageUsefulness,
+    groupedMemories,
+    dateGroups,
     isLoading,
     error,
     loadFromDB,
@@ -709,6 +923,7 @@ ${userInterests.value.slice(0, 5).map(i => `- ${i.interest} (mentioned ${i.times
     lastMealTime,
     lastChatTopicTime,
     friendshipLevel,
+    friendshipStats,
     recordNeedSatisfied,
     recordUserInterest,
     recordEvolution,
@@ -719,6 +934,7 @@ ${userInterests.value.slice(0, 5).map(i => `- ${i.interest} (mentioned ${i.times
     getPersonalityProfile,
     recordPetState,
     generateDailyDiary,
+    generateDailySummary,
     incrementMissedFeedings,
     resetMissedFeedings,
     isPetDead,

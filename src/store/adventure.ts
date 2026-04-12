@@ -270,9 +270,10 @@ export const useAdventureStore = defineStore('adventure', () => {
     score.value += Math.floor(dt * 10);
 
     // 玩家输入 - 物理参数调整
-    const speed = 0.4;          // 移动速度（增加跳跃宽度）
-    const jumpForceY = -8;      // 跳跃力（增加跳跃高度）
-    const gravity = 0.25;       // 重力（减小重力以增加跳跃时间）
+    const speed = 0.4;          // 移动速度
+    const jumpForceY = -8;      // 跳跃力
+    const gravity = 0.25;       // 重力
+    const jumpBoost = 0.2;      // 跳跃时的额外水平冲量
 
     player.value.velocity.x = 0;
 
@@ -289,10 +290,17 @@ export const useAdventureStore = defineStore('adventure', () => {
       player.value.facing = 'right';
     }
 
-    // 跳跃（限制为垂直跳跃）
+    // 跳跃（支持对角线跳跃）
     if (isUp && player.value.onGround) {
       player.value.velocity.y = jumpForceY;
       player.value.onGround = false;
+
+      // 当跳跃时有水平输入，给予额外的水平冲量，实现对角线轨迹
+      if (isLeft) {
+        player.value.velocity.x -= jumpBoost;
+      } else if (isRight) {
+        player.value.velocity.x += jumpBoost;
+      }
     }
 
     // 玩家碰撞箱参数

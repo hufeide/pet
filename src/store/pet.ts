@@ -39,6 +39,8 @@ export function buildSystemPrompt(context?: {
   personalityProfile?: any;
   userInterests?: any;
   userProfile?: any;
+  currentEmotion?: string;
+  emotionPrompt?: string;
 }): string {
   const parts: string[] = [];
 
@@ -48,6 +50,14 @@ export function buildSystemPrompt(context?: {
     parts.push(`- Name: ${context.petStatus.name || 'Pet'}`);
     parts.push(`- Level: ${context.petStatus.level || 1}`);
     parts.push(`- Friendship: ${context.petStatus.friendship || 50}/100`);
+    parts.push('');
+  }
+
+  // Current emotion and behavioral guidelines
+  if (context?.currentEmotion && context?.emotionPrompt) {
+    parts.push('# Your Current Emotion');
+    parts.push(`- Emotion: ${context.currentEmotion}`);
+    parts.push(`- Behavioral Guidelines: ${context.emotionPrompt}`);
     parts.push('');
   }
 
