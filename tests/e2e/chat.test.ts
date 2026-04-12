@@ -3,26 +3,26 @@ import { test, expect } from '@playwright/test';
 test.describe('Chat Page', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to the app
-    await page.goto('http://localhost:5175');
+    await page.goto('http://localhost:5173');
   });
 
   test('should navigate to Chat tab', async ({ page }) => {
-    // Use exact match to avoid conflict with Pet "Chat with Pet" button
-    await page.getByRole('button', { name: 'Chat', exact: true }).click();
+    // Click on Chat tab in navigation (use getByText to avoid role issues)
+    await page.getByText('Chat').first().click();
 
     // Check that Chat tab is active by checking the chat container is visible
     await expect(page.locator('.chat-container')).toBeVisible();
   });
 
   test('should display chat history container', async ({ page }) => {
-    await page.getByRole('button', { name: 'Chat', exact: true }).click();
+    await page.getByText('Chat').first().click();
 
     // Check chat history container exists
     await expect(page.locator('.chat-history')).toBeVisible();
   });
 
   test('should display chat input area', async ({ page }) => {
-    await page.getByRole('button', { name: 'Chat', exact: true }).click();
+    await page.getByText('Chat').first().click();
 
     // Check textarea exists
     await expect(page.locator('.chat-input textarea')).toBeVisible();
@@ -32,7 +32,7 @@ test.describe('Chat Page', () => {
   });
 
   test('should show loading state when sending message', async ({ page }) => {
-    await page.getByRole('button', { name: 'Chat', exact: true }).click();
+    await page.getByText('Chat').first().click();
 
     const textarea = page.locator('.chat-input textarea');
     const sendButton = page.locator('.chat-input button');
@@ -48,7 +48,7 @@ test.describe('Chat Page', () => {
   });
 
   test('should display user message after sending', async ({ page }) => {
-    await page.getByRole('button', { name: 'Chat', exact: true }).click();
+    await page.getByText('Chat').first().click();
 
     const textarea = page.locator('.chat-input textarea');
     const sendButton = page.locator('.chat-input button');
@@ -66,7 +66,7 @@ test.describe('Chat Page', () => {
   });
 
   test('should display AI response after sending message', async ({ page }) => {
-    await page.getByRole('button', { name: 'Chat', exact: true }).click();
+    await page.getByText('Chat').first().click();
 
     const textarea = page.locator('.chat-input textarea');
     const sendButton = page.locator('.chat-input button');
