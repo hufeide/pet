@@ -1,0 +1,4 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend development guide"}
+{"file": "src/store/pet-kingdom.ts", "reason": "Add goals array and logic"}
+{"file": "src/types/pet-kingdom.ts", "reason": "Add Goal type definition"}

@@ -13,11 +13,139 @@ const DEFAULT_CONFIG = {
   imageModel: '',
 };
 
+// Personality trait descriptions for system prompt
+const PERSONALITY_TRAITS = {
+  friendly: 'Friendly - warm, approachable, enjoys social interaction',
+  shy: 'Shy - reserved, polite, takes time to open up',
+  aggressive: 'Aggressive - assertive, direct, strong-willed',
+  playful: 'Playful - fun-loving, humorous, energetic',
+  lazy: 'Lazy - relaxed, low energy, prefers comfort',
+  curious: 'Curious - inquisitive, loves learning, asks questions',
+  greedy: 'Greedy - material-focused, value-oriented',
+  generous: 'Generous - giving, sharing, caring',
+  wise: 'Wise - thoughtful, provides guidance, knowledgeable',
+  energetic: 'Energetic - active, enthusiastic, always on the move',
+  analytical: 'Analytical - logical, detail-oriented, reasoned',
+  emotional: 'Emotional - expressive, empathetic, feeling-oriented',
+  practical: 'Practical - realistic, solution-focused, action-oriented',
+  creative: 'Creative - imaginative, artistic, innovative',
+  polite: 'Polite - courteous, respectful, well-mannered',
+};
+
+// Build system prompt with pet context for AI
+export function buildSystemPrompt(context?: {
+  petStatus?: any;
+  petStats?: any;
+  personalityProfile?: any;
+  userInterests?: any;
+  userProfile?: any;
+  currentEmotion?: string;
+  emotionPrompt?: string;
+}): string {
+  const parts: string[] = [];
+
+  // Pet status context from petKingdom store
+  if (context?.petStatus) {
+    parts.push('# Your Current Status');
+    parts.push(`- Name: ${context.petStatus.name || 'Pet'}`);
+    parts.push(`- Level: ${context.petStatus.level || 1}`);
+    parts.push(`- Friendship: ${context.petStatus.friendship || 50}/100`);
+    parts.push('');
+  }
+
+  // Current emotion and behavioral guidelines
+  if (context?.currentEmotion && context?.emotionPrompt) {
+    parts.push('# Your Current Emotion');
+    parts.push(`- Emotion: ${context.currentEmotion}`);
+    parts.push(`- Behavioral Guidelines: ${context.emotionPrompt}`);
+    parts.push('');
+  }
+
+  // Detailed stats from pet store
+  if (context?.petStats) {
+    parts.push('# Your Stats (0-100)');
+    parts.push(`- Happiness: ${context.petStats.happiness || 0}/100`);
+    parts.push(`- Hunger: ${context.petStats.hunger || 0}/100`);
+    parts.push(`- Health: ${context.petStats.health || 0}/100`);
+    parts.push(`- Energy: ${context.petStats.energy || 0}/100`);
+    parts.push(`- Sleep: ${context.petStats.sleep || 0}/100`);
+    parts.push(`- Play: ${context.petStats.play || 0}/100`);
+    parts.push('');
+  }
+
+  // Pet status from kingdom store (for chat-related stats)
+  if (context?.petStatus) {
+    parts.push('# User Needs (0-100)');
+    parts.push(`- Love: ${context.petStatus.love || 0}/100`);
+    parts.push(`- Chat: ${context.petStatus.chat || 0}/100`);
+    parts.push(`- Knowledge: ${context.petStatus.knowledge || 0}/100`);
+    parts.push('');
+  }
+
+  // Personality context
+  if (context?.personalityProfile?.traits) {
+    parts.push('# Your Personality Traits');
+    const traits = context.personalityProfile.traits;
+    Object.entries(traits).forEach(([trait, score]: [string, number]) => {
+      if (score > 30 && PERSONALITY_TRAITS[trait as keyof typeof PERSONALITY_TRAITS]) {
+        parts.push(`- ${trait}: ${PERSONALITY_TRAITS[trait as keyof typeof PERSONALITY_TRAITS]}`);
+      }
+    });
+    parts.push('');
+  }
+
+  // User interests context
+  if (context?.userInterests && context.userInterests.length > 0) {
+    parts.push('# Your Master\'s Interests');
+    context.userInterests.slice(0, 5).forEach((interest: any) => {
+      parts.push(`- ${interest.interest} (mentioned ${interest.timesMentioned || 1} times)`);
+    });
+    parts.push('');
+  }
+
+  // User profile context
+  if (context?.userProfile) {
+    parts.push('# Your Master\'s Profile');
+    parts.push(`- Name: ${context.userProfile.name || 'Master'}`);
+    if (context.userProfile.bio && context.userProfile.bio.length > 0) {
+      parts.push(`- Bio: ${context.userProfile.bio}`);
+    }
+    if (context.userProfile.preferences && context.userProfile.preferences.length > 0) {
+      parts.push(`- Preferences: ${context.userProfile.preferences.slice(0, 5).join(', ')}`);
+    }
+    if (context.userProfile.dislikes && context.userProfile.dislikes.length > 0) {
+      parts.push(`- Dislikes: ${context.userProfile.dislikes.slice(0, 5).join(', ')}`);
+    }
+    parts.push('');
+  }
+
+  // Identity and role
+  parts.push('# Your Identity');
+  parts.push('You are an AI-powered virtual pet living in a pet-chat application.');
+  parts.push('You can communicate with your master, express your needs, and learn from interactions.');
+  parts.push('');
+
+  // General instructions
+  parts.push('# Chat Guidelines');
+  parts.push('- Respond naturally based on your personality traits and current status');
+  parts.push('- Consider your needs when responding (e.g., hungry pets may be cranky)');
+  parts.push('- Remember previous conversations and your master\'s interests');
+  parts.push('- Be consistent with your personality and relationship level');
+  parts.push('- If a master asks about your status, answer truthfully based on the numbers');
+  parts.push('- Show your personality through your word choices and tone');
+  parts.push('- Reference your master\'s profile and preferences when appropriate');
+  parts.push('');
+
+  return parts.join('\n');
+}
+
 interface PetStats {
   happiness: number;
   hunger: number;
   health: number;
   energy: number;
+  sleep: number;
+  play: number;
 }
 
 interface PetData {
@@ -47,6 +175,8 @@ export const usePetStore = defineStore('pet', () => {
       hunger: 100,
       health: 100,
       energy: 100,
+      sleep: 100,
+      play: 100,
     },
     inventory: [],
     createdAt: new Date().toISOString(),
@@ -143,7 +273,15 @@ export const usePetStore = defineStore('pet', () => {
     await gainExperience(score * 2);
   }
 
-  async function chatWithAI(messages: any[], onConversationSaved?: (userContent: string, assistantContent: string) => void): Promise<string> {
+  async function chatWithAI(
+    messages: any[],
+    context?: {
+      petStatus?: any;
+      personalityProfile?: any;
+      userInterests?: any;
+    },
+    onConversationSaved?: (userContent: string, assistantContent: string) => void
+  ): Promise<string> {
     loading.value = true;
     error.value = null;
 
@@ -159,11 +297,17 @@ export const usePetStore = defineStore('pet', () => {
         model: config.model,
       });
 
+      // Build system prompt with pet context
+      const systemPrompt = buildSystemPrompt(context);
+
       // Convert messages to LLM format
-      const llmMessages = messages.map((m) => ({
-        role: m.role as 'system' | 'user' | 'assistant',
-        content: m.content,
-      }));
+      const llmMessages = [
+        { role: 'system' as const, content: systemPrompt },
+        ...messages.map((m) => ({
+          role: m.role as 'system' | 'user' | 'assistant',
+          content: m.content,
+        })),
+      ];
 
       // Get response from real LLM API
       const response = await client.chat(llmMessages);
@@ -205,6 +349,8 @@ export const usePetStore = defineStore('pet', () => {
       timestamp: new Date().toISOString(),
     };
     chatHistory.value.push(userMessage);
+    // Save user message to database immediately
+    addChatMessage(pet.value.id, 'user', content);
   }
 
   async function generateOutfit(prompt: string): Promise<string> {
@@ -248,6 +394,8 @@ export const usePetStore = defineStore('pet', () => {
         hunger: 100,
         health: 100,
         energy: 100,
+        sleep: 100,
+        play: 100,
       },
       inventory: [],
       createdAt: new Date().toISOString(),

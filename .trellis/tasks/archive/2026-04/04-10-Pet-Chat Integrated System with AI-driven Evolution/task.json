@@ -1,0 +1,45 @@
+{
+  "id": "Pet-Chat Integrated System with AI-driven Evolution",
+  "name": "Pet-Chat Integrated System with AI-driven Evolution",
+  "title": "Merge pet and chat functionality into an integrated AI-driven pet system with the following requirements:\n\n## Core Requirements\n1. **Pet & Chat Integration**: Click pet to open chat interface showing pet's status\n2. **6 Basic Needs System**: eat, play/chat, sleep, love/affection, learn/knowledge\n   - First 3 (eat, play, sleep) trigger at meal times\n   - Last 3 (love, chat, learn) trigger randomly between meals\n3. **Health System**: \n   - If not fed at meal time: happiness -1, health -1\n   - 4 consecutive missed feedings = death\n   - Health gradually decreases without proper care\n4. **AI-driven Behavior**:\n   - 10-minute interval checks for needs\n   - Every hour:主动发起话题聊天(每小时最多1次，夜间不打扰)\n   - Pet learns from chat history and remembers user interests\n   - Pet evolves based on user care quality\n5. **Chat Features**:\n   - Chat shows pet's current needs\n   - Pet can request fulfillment of most urgent need\n   - Pet generates interesting topics based on chat history (max 1/hour, no夜间打扰)\n   - Pet summarizes user interests/needs from chat history\n   - Pet searches and shares news/knowledge to help user learn\n6. **Dynamic Evolution**:\n   - Pet evolves as friendship grows (stranger → familiar → friend)\n   - New needs emerge as pet evolves\n   - Pet adjusts personality based on user interactions\n   - User can instruct pet to self-care (pet complies unconditionally)\n   - Pet optimizes conversation topics to please user\n7. **Technical**: All behavior driven by LLM with定时触发 mechanisms\n",
+  "description": "Complete implementation of pet-chat integrated system with 6 needs, memory system, daily diary, and friendship progression. Implementation complete - all acceptance criteria met.",
+  "status": "completed",
+  "dev_type": "frontend",
+  "scope": "pet-kingdom, memory, components",
+  "priority": "P2",
+  "creator": "feide",
+  "assignee": "feide",
+  "createdAt": "2026-04-10",
+  "completedAt": "2026-04-11",
+  "branch": "feature/pet-chat-integrated-evolution",
+  "base_branch": "main",
+  "worktree_path": null,
+  "current_phase": 4,
+  "next_action": [],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "src/store/pet-kingdom.ts",
+    "src/store/memory.ts",
+    "src/components/PetDiary.vue",
+    "src/components/MemoryArchive.vue",
+    "src/types/pet-kingdom.ts",
+    "src/db/indexeddb.ts"
+  ],
+  "notes": "Implementation complete. All TypeScript checks pass. Completed tasks:\n- 6 Basic Needs System with meal time triggers\n- Memory system with tagging and archive\n- Daily diary generation\n- Friendship progression system\n- Pet status display in chat\n- Self-care mode\n\nNext steps: Create PR and merge to main.",
+  "meta": {
+    "filesCreated": [
+      "src/components/PetDiary.vue",
+      "src/components/MemoryArchive.vue"
+    ],
+    "filesModified": [
+      "src/store/pet-kingdom.ts",
+      "src/store/memory.ts",
+      "src/types/pet-kingdom.ts"
+    ],
+    "implementationSource": "04-10-pet-chat-integrated-evolution"
+  }
+}

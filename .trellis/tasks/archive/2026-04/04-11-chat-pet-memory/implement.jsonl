@@ -1,0 +1,7 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/backend/index.md", "reason": "Backend development guide"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend development guide"}
+{"file": "src/store/pet.ts", "reason": "Prompt construction and chat logic"}
+{"file": "src/store/memory.ts", "reason": "Memory storage and extraction logic"}
+{"file": "src/components/Chat.vue", "reason": "Chat UI and trigger for extraction"}
+{"file": "src/types/pet-kingdom.ts", "reason": "Shared types for memory and profiles"}

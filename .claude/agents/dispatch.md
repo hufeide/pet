@@ -69,10 +69,10 @@ Execute each step in `phase` order.
 
 ```
 Task(
+  description: "Implement the feature described in prd.md in the task directory",
   subagent_type: "implement",
   prompt: "Implement the feature described in prd.md in the task directory",
-  model: "opus",
-  run_in_background: true
+  model: "opus"
 )
 ```
 
@@ -88,10 +88,10 @@ Implement receives complete context and autonomously: read → understand → im
 
 ```
 Task(
+  description: "Check code changes, fix issues yourself",
   subagent_type: "check",
   prompt: "Check code changes, fix issues yourself",
-  model: "opus",
-  run_in_background: true
+  model: "opus"
 )
 ```
 
@@ -107,10 +107,10 @@ Hook will auto-inject:
 
 ```
 Task(
+  description: "Fix the issues described in the task context",
   subagent_type: "debug",
   prompt: "Fix the issues described in the task context",
-  model: "opus",
-  run_in_background: true
+  model: "opus"
 )
 ```
 
@@ -123,10 +123,10 @@ Hook will auto-inject:
 
 ```
 Task(
+  description: "[finish] Execute final completion check before PR",
   subagent_type: "check",
   prompt: "[finish] Execute final completion check before PR",
-  model: "opus",
-  run_in_background: true
+  model: "opus"
 )
 ```
 
@@ -161,10 +161,10 @@ This will:
 
 ```
 task_id = Task(
+  description: "Implement the feature",
   subagent_type: "implement",  // or "check", "debug"
   prompt: "Simple task description",
-  model: "opus",
-  run_in_background: true
+  model: "opus"
 )
 
 // Poll for completion

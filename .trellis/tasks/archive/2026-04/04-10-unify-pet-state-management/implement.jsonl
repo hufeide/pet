@@ -1,0 +1,6 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend development guide"}
+{"file": "src/store/pet-kingdom.ts", "reason": "Source of truth for pet status state"}
+{"file": "src/store/pet.ts", "reason": "Existing pet store to be updated"}
+{"file": "src/components/Pet.vue", "reason": "Pet view component to use unified state"}
+{"file": "src/components/Chat.vue", "reason": "Chat component to use unified state"}

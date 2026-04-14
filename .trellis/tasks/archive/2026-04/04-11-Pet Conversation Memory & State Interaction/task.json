@@ -1,0 +1,44 @@
+{
+  "id": "Pet Conversation Memory & State Interaction",
+  "name": "Pet Conversation Memory & State Interaction",
+  "title": "Pet chat system with memory and state interaction:\n\nRequirements:\n1. Pet remembers its own status (happiness, hunger, health, energy, sleep, play) and recent changes\n2. Pet remembers user personality traits and continuously updates based on conversation patterns\n3. Pet remembers conversation history and uses it for context-aware responses\n4. Pet can request need fulfillment through chat\n5. User can satisfy pet's needs through conversation (e.g., 'I'll play with you' increases play need)\n6. All interactions are saved to memory system with proper tagging\n\nThe system should integrate with existing pet-kingdom.ts and memory.ts stores.\n",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "priority": "P2",
+  "creator": "feide",
+  "assignee": "feide",
+  "createdAt": "2026-04-11",
+  "completedAt": "2026-04-11",
+  "branch": null,
+  "base_branch": "fix/chat-pet-features",
+  "worktree_path": null,
+  "current_phase": 0,
+  "next_action": [
+    {
+      "phase": 1,
+      "action": "implement"
+    },
+    {
+      "phase": 2,
+      "action": "check"
+    },
+    {
+      "phase": 3,
+      "action": "finish"
+    },
+    {
+      "phase": 4,
+      "action": "create-pr"
+    }
+  ],
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

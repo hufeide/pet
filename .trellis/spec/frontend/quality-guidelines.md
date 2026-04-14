@@ -22,6 +22,7 @@ Before committing code:
 - [ ] Type checks pass (`npx tsc --noEmit`)
 - [ ] Manual testing passes
 - [ ] No console errors in DevTools
+- [ ] Pet status display is consistent across all tabs (4 needs: ⚡ 能量, 🎾 玩耍, ❤️ 爱意, 📚 知识)
 
 ---
 
@@ -86,16 +87,48 @@ The project has `"noImplicitAny": true` - avoid using `any` type.
 
 ## Testing
 
-### Unit Testing
+### Test Frameworks
+
+| Framework | Purpose | Command |
+|-----------|---------|---------|
+| Vitest | Unit tests for stores, utils | `npm run test` |
+| Playwright | E2E UI tests | `npm run test:e2e` |
+
+### Running Tests
 
 ```bash
+# Run unit tests
 npm run test
+
+# Run E2E tests
+npm run test:e2e
+
+# Run all tests
+npm run test && npm run test:e2e
 ```
 
-### Test Framework
+### Test Coverage
 
-- **Vitest** for unit tests
-- **Vue Test Utils** for component tests
+- **Unit Tests**: Store logic, game mechanics, state management (28 tests)
+- **E2E Tests**: UI navigation, user interactions, AI responses (25 tests)
+
+### Test File Structure
+
+```
+src/
+├── __tests__/
+│   ├── stores/
+│   │   ├── chat.test.ts
+│   │   └── pet-kingdom.test.ts
+│   └── utils/
+│       └── store-mocks.ts
+tests/
+└── e2e/
+    ├── chat.test.ts
+    ├── game.test.ts
+    ├── paradise.test.ts
+    └── ultimate.test.ts
+```
 
 ### Test File Structure
 

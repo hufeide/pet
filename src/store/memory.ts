@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { generateUUID } from '../utils/uuid';
-import { saveMemory, getMemories } from '../db';
+import { saveMemory, getMemories, getUserProfile, saveUserProfile as saveUserProfileDB } from '../db';
 
 // Extended memory types for pet-chat system
 export type PetMemoryType =
@@ -15,13 +15,16 @@ export type PetMemoryType =
   | 'user_interest'
   | 'evolution'
   | 'knowledge_shared'
-  | 'daily_diary';
+  | 'daily_diary'
+  | 'daily_summary'
+  | 'status_history'
+  | 'personality';
 
 // Friendship levels
 export type FriendshipLevel = 'stranger' | 'acquaintance' | 'friend' | 'bestFriend';
 
 // Personality traits
-export type PersonalityTrait = 'friendly' | 'shy' | 'aggressive' | 'curious' | 'playful' | 'wise' | 'lazy' | 'energetic';
+export type PersonalityTrait = 'friendly' | 'shy' | 'aggressive' | 'curious' | 'playful' | 'wise' | 'lazy' | 'energetic' | 'analytical' | 'emotional' | 'practical' | 'creative' | 'polite';
 
 // Meal times (24-hour format in minutes)
 export const MEAL_TIMES = {
@@ -33,7 +36,46 @@ export const MEAL_TIMES = {
 export const SLEEP_HOURS = { start: 22, end: 6 };  // 22:00-06:00
 
 // Need types
-export type NeedType = 'eat' | 'sleep' | 'play' | 'love' | 'chat' | 'learn';
+export type NeedType = 'energy' | 'play' | 'love' | 'learn';
+
+// Pet status interface
+export interface PetStatus {
+  energy: number;
+  play: number;
+  love: number;
+  knowledge: number;
+  health: number;
+  happiness: number;
+}
+
+// Status history record
+export interface StatusHistoryRecord {
+  id: string;
+  petId: string;
+  timestamp: string;
+  status: PetStatus;
+  changes: Record<string, number>;
+  source: 'manual' | 'auto' | 'conversation';
+  conversationId?: string;
+}
+
+// Personality profile
+export interface PersonalityProfile {
+  id: string;
+  petId: string;
+  traits: Record<PersonalityTrait, number>;
+  keywords: Record<string, number>;
+  topics: Record<string, number>;
+  lastUpdated: string;
+}
+
+// User interest
+export interface UserInterest {
+  id: string;
+  interest: string;
+  category: string;
+  timesMentioned: number;
+}
 
 // Internal MemoryRecord interface that matches our DB
 interface InternalMemoryRecord {
@@ -55,14 +97,54 @@ export const useMemoryStore = defineStore('memory', () => {
   const error = ref<string | null>(null);
 
   // Pet-Chat Integrated System State
-  const userInterests = ref<Array<{ id: string; interest: string; category: string; timesMentioned: number }>>([]);
+  const userInterests = ref<UserInterest[]>([]);
   const evolutionHistory = ref<Array<{ id: string; level: FriendshipLevel; timestamp: string; changes: string[] }>>([]);
   const missedFeedings = ref(0);
   const lastMealTime = ref<Date | null>(null);
   const lastChatTopicTime = ref<Date | null>(null);
+  const statusHistory = ref<StatusHistoryRecord[]>([]);
+  const personalityProfiles = ref<PersonalityProfile[]>([]);
+  const userProfiles = ref<import('../store/user').UserProfile[]>([]);
 
-  // Computed
-  const totalMemories = computed(() => memories.value.length);
+  // Grouped memories by date and category
+  const groupedMemories = computed(() => {
+    const groups: Record<string, {
+      chat: InternalMemoryRecord[],
+      share: InternalMemoryRecord[],
+      others: InternalMemoryRecord[],
+      summary?: InternalMemoryRecord
+    }> = {};
+
+    // Sort memories by timestamp descending
+    const sorted = [...memories.value].sort((a, b) =>
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+
+    sorted.forEach(m => {
+      const date = m.timestamp.split('T')[0];
+      if (!groups[date]) {
+        groups[date] = { chat: [], share: [], others: [] };
+      }
+
+      if (m.type === 'daily_summary') {
+        groups[date].summary = m;
+      } else if (['conversation', 'need_satisfied', 'user_interest'].includes(m.type)) {
+        groups[date].chat.push(m);
+      } else if (['knowledge_shared', 'tip', 'skill'].includes(m.type)) {
+        groups[date].share.push(m);
+      } else {
+        groups[date].others.push(m);
+      }
+    });
+
+    return groups;
+  });
+
+  // Get formatted date groups for the UI
+  const dateGroups = computed(() => {
+    return Object.keys(groupedMemories.value).sort().reverse();
+  });
+
   const memoriesByType = computed(() => {
     const byType: Record<string, number> = {};
     memories.value.forEach(m => {
@@ -76,13 +158,84 @@ export const useMemoryStore = defineStore('memory', () => {
     return total / memories.value.length;
   });
 
-  // Get current friendship level
+  // Get current friendship level (multi-factor)
   const friendshipLevel = computed((): FriendshipLevel => {
+    // Multi-factor scoring:
+    // 1. Daily diaries written (persistence)
+    // 2. Total interactions (chat messages + need satisfactions)
+    // 3. Knowledge shared count (learning)
+    // 4. Need satisfaction ratio (care)
+
     const totalDiaries = memories.value.filter(m => m.type === 'daily_diary').length;
-    if (totalDiaries < 1) return 'stranger';
-    if (totalDiaries < 3) return 'acquaintance';
-    if (totalDiaries < 7) return 'friend';
+    const totalInteractions = memories.value.filter(m => m.type === 'conversation' || m.type === 'need_satisfied').length;
+    const knowledgeShared = memories.value.filter(m => m.type === 'knowledge_shared').length;
+
+    // Calculate composite score
+    const diaryScore = totalDiaries * 10;        // 10 points per diary
+    const interactionScore = totalInteractions * 2; // 2 points per interaction
+    const knowledgeScore = knowledgeShared * 5;    // 5 points per knowledge share
+
+    const totalScore = diaryScore + interactionScore + knowledgeScore;
+
+    // Evolution thresholds (multi-factor):
+    // Stranger → Acquaintance: 1 diary + 10 interactions = 10 + 20 = 30 points
+    // Acquaintance → Friend: 3 diaries + 30 interactions = 30 + 60 = 90 points
+    // Friend → BestFriend: 7 diaries + 100 interactions = 70 + 200 = 270 points
+
+    if (totalScore < 30) return 'stranger';
+    if (totalScore < 90) return 'acquaintance';
+    if (totalScore < 270) return 'friend';
     return 'bestFriend';
+  });
+
+  // Get detailed friendship stats for UI display
+  const friendshipStats = computed((): {
+    currentLevel: FriendshipLevel;
+    score: number;
+    nextLevel: FriendshipLevel | null;
+    nextLevelThreshold: number;
+    progress: number; // 0-100
+  } => {
+    const totalDiaries = memories.value.filter(m => m.type === 'daily_diary').length;
+    const totalInteractions = memories.value.filter(m => m.type === 'conversation' || m.type === 'need_satisfied').length;
+    const knowledgeShared = memories.value.filter(m => m.type === 'knowledge_shared').length;
+
+    const diaryScore = totalDiaries * 10;
+    const interactionScore = totalInteractions * 2;
+    const knowledgeScore = knowledgeShared * 5;
+    const totalScore = diaryScore + interactionScore + knowledgeScore;
+
+    const thresholds = {
+      stranger: 0,
+      acquaintance: 30,
+      friend: 90,
+      bestFriend: 270,
+    };
+
+    const levels: FriendshipLevel[] = ['stranger', 'acquaintance', 'friend', 'bestFriend'];
+    const currentIndex = levels.findIndex((level, index) => {
+      const nextIndex = index + 1;
+      return totalScore >= thresholds[level] && (nextIndex >= levels.length || totalScore < thresholds[levels[nextIndex]]);
+    });
+
+    const currentLevel = levels[currentIndex];
+    const nextLevel = currentIndex < levels.length - 1 ? levels[currentIndex + 1] : null;
+    const nextThreshold = nextLevel ? thresholds[nextLevel] : Infinity;
+    const prevThreshold = thresholds[currentLevel];
+
+    // Calculate progress to next level (0-100)
+    const range = nextThreshold - prevThreshold;
+    const progress = nextLevel
+      ? Math.min(100, Math.max(0, ((totalScore - prevThreshold) / range) * 100))
+      : 100;
+
+    return {
+      currentLevel,
+      score: totalScore,
+      nextLevel,
+      nextLevelThreshold: nextThreshold,
+      progress,
+    };
   });
 
   // Actions
@@ -92,11 +245,13 @@ export const useMemoryStore = defineStore('memory', () => {
 
     try {
       const savedMemories = await getMemories(petId);
-      // Filter out memories with unknown types to avoid type errors
-      // Type assertion is safe here because we filter by valid types
+      // Filter out memories with unknown types and parse metadata
       memories.value = (savedMemories || []).filter(m =>
-        ['failure', 'conversation', 'skill', 'tip', 'event', 'quest', 'need_satisfied', 'user_interest', 'evolution', 'knowledge_shared', 'daily_diary'].includes(m.type as string)
-      ) as unknown as InternalMemoryRecord[];
+        ['failure', 'conversation', 'skill', 'tip', 'event', 'quest', 'need_satisfied', 'user_interest', 'evolution', 'knowledge_shared', 'daily_diary', 'status_history', 'personality'].includes(m.type as string)
+      ).map(m => ({
+        ...m,
+        metadata: typeof m.metadata === 'string' ? JSON.parse(m.metadata) : m.metadata,
+      })) as InternalMemoryRecord[];
     } catch (err) {
       error.value = `Failed to load memories: ${err}`;
     } finally {
@@ -140,16 +295,21 @@ export const useMemoryStore = defineStore('memory', () => {
     if (type === 'evolution') tags.push('growth');
     if (type === 'knowledge_shared') tags.push('learning');
     if (type === 'daily_diary') tags.push('diary');
+    if (type === 'status_history') tags.push('status', 'history');
+    if (type === 'personality') tags.push('personality', 'profile');
     return tags;
   }
 
+  // ==========================================
+  // Memory & State Interaction System Functions
+  // ==========================================
+
   // Record a need satisfaction event
   async function recordNeedSatisfied(petId: string, need: NeedType, satisfied: boolean): Promise<void> {
-    const tag = need === 'eat' ? '#hunger' :
-                need === 'sleep' ? '#sleep' :
+    const tag = need === 'energy' ? '#energy' :
                 need === 'play' ? '#play' :
                 need === 'love' ? '#love' :
-                need === 'learn' ? '#learn' : '#chat';
+                '#learn';
 
     await addMemory(
       'need_satisfied' as PetMemoryType,
@@ -233,10 +393,191 @@ export const useMemoryStore = defineStore('memory', () => {
     );
   }
 
-  // Record pet state
+  // Record pet status history (for tracking changes over time)
+  async function recordPetStatusHistory(
+    petId: string,
+    status: PetStatus,
+    changes: Record<string, number>,
+    source: 'manual' | 'auto' | 'conversation',
+    conversationId?: string
+  ): Promise<void> {
+    const record: StatusHistoryRecord = {
+      id: generateUUID(),
+      petId,
+      timestamp: new Date().toISOString(),
+      status,
+      changes,
+      source,
+      conversationId,
+    };
+
+    statusHistory.value.push(record);
+    await addMemory(
+      'status_history' as PetMemoryType,
+      `Status Update - ${source}`,
+      JSON.stringify(status),
+      {
+        status,
+        changes,
+        source,
+        conversationId,
+        timestamp: record.timestamp,
+      },
+      5,
+      ['status', '#history', `#${source}`]
+    );
+  }
+
+  // Extract personality traits from conversation content
+  async function extractPersonalityFromConversation(
+    petId: string,
+    content: string,
+    role: 'user' | 'assistant'
+  ): Promise<void> {
+    if (role !== 'user') return;
+
+    const personalityChanges: Partial<Record<PersonalityTrait, number>> = {};
+    const keywordsFound: string[] = [];
+    const topicsFound: string[] = [];
+
+    // Analyze content for personality traits based on word usage
+    const contentLower = content.toLowerCase();
+
+    // Friendly - positive words, emojis, exclamation marks
+    if (contentLower.match(/(love|happy|great|amazing|wonderful|nice|good|yes|ok)/)) {
+      personalityChanges.friendly = (personalityChanges.friendly || 0) + 10;
+    }
+
+    // Shy - polite, formal language
+    if (contentLower.match(/(please|thank|thanks|excuse|sorry|pardon)/)) {
+      personalityChanges.shy = (personalityChanges.shy || 0) + 5;
+      personalityChanges.polite = 5; // Add to known traits
+    }
+
+    // Playful - questions, exclamation marks, emojis
+    if (contentLower.match(/(play|fun|game|funny|joke|lol|ha|haha)/)) {
+      personalityChanges.playful = (personalityChanges.playful || 0) + 10;
+    }
+
+    // Analytical - questions, logical words
+    if (contentLower.match(/(why|how|what|if|when|where|reason|logic|analysis)/)) {
+      personalityChanges.analytical = (personalityChanges.analytical || 0) + 10;
+    }
+
+    // Emotional - expressive words
+    if (contentLower.match(/(feel|feeling|emotion|sad|happy|excited|worry|care)/)) {
+      personalityChanges.emotional = (personalityChanges.emotional || 0) + 10;
+    }
+
+    // Practical - action-oriented words
+    if (contentLower.match(/(do|make|work|fix|build|create|practical)/)) {
+      personalityChanges.practical = (personalityChanges.practical || 0) + 10;
+    }
+
+    // Creative - imaginative words
+    if (contentLower.match(/(imagine|create|art|design|dream|fantasy|creative)/)) {
+      personalityChanges.creative = (personalityChanges.creative || 0) + 10;
+    }
+
+    // Extract keywords
+    const commonWords = [
+      'weather', 'food', 'music', 'movie', 'book', 'game', 'work', 'study',
+      'travel', 'animal', 'pet', 'friend', 'family', 'hobby', 'sport'
+    ];
+    commonWords.forEach(word => {
+      if (contentLower.includes(word)) {
+        keywordsFound.push(word);
+        const existingKeyword = personalityProfiles.value[0]?.keywords?.[word];
+        if (existingKeyword) {
+          // Update existing keyword count
+        }
+      }
+    });
+
+    // Extract topics
+    const topicWords = ['tech', 'science', 'art', 'music', 'sports', 'food'];
+    topicWords.forEach(topic => {
+      if (contentLower.includes(topic)) {
+        topicsFound.push(topic);
+      }
+    });
+
+    // Update personality profile
+    await updatePersonalityProfile(
+      petId,
+      personalityChanges,
+      keywordsFound,
+      topicsFound
+    );
+  }
+
+  // Update personality profile with new trait scores
+  async function updatePersonalityProfile(
+    petId: string,
+    traitChanges: Partial<Record<PersonalityTrait, number>>,
+    newKeywords: string[],
+    newTopics: string[]
+  ): Promise<void> {
+    let profile = personalityProfiles.value.find(p => p.petId === petId);
+
+    if (!profile) {
+      profile = {
+        id: generateUUID(),
+        petId,
+        traits: {} as Record<PersonalityTrait, number>,
+        keywords: {},
+        topics: {},
+        lastUpdated: new Date().toISOString(),
+      };
+      personalityProfiles.value.push(profile);
+    }
+
+    // Update trait scores
+    const traits = profile.traits;
+    Object.entries(traitChanges).forEach(([trait, score]) => {
+      if (trait && score) {
+        traits[trait as PersonalityTrait] = Math.min(100, (traits[trait as PersonalityTrait] || 0) + score);
+      }
+    });
+
+    // Update keywords
+    const keywords = profile.keywords;
+    newKeywords.forEach(keyword => {
+      keywords[keyword] = (keywords[keyword] || 0) + 1;
+    });
+
+    // Update topics
+    const topics = profile.topics;
+    newTopics.forEach(topic => {
+      topics[topic] = (topics[topic] || 0) + 1;
+    });
+
+    profile.lastUpdated = new Date().toISOString();
+
+    await addMemory(
+      'personality' as PetMemoryType,
+      'Personality Update',
+      `Traits updated: ${Object.entries(traitChanges).map(([k, v]) => `${k}: ${v}`).join(', ')}`,
+      {
+        traits: profile.traits,
+        keywords: newKeywords,
+        topics: newTopics,
+        timestamp: profile.lastUpdated,
+      },
+      7,
+      ['personality', '#update']
+    );
+  }
+
+  // Get personality profile for a pet
+  function getPersonalityProfile(petId: string): PersonalityProfile | undefined {
+    return personalityProfiles.value.find(p => p.petId === petId);
+  }
+
+  // Record pet state (simplified for periodic updates)
   async function recordPetState(petId: string, states: Record<string, unknown>): Promise<void> {
     await addMemory(
-      'pet_state' as PetMemoryType,
+      'status_history' as PetMemoryType,
       'Pet State Update',
       JSON.stringify(states),
       {
@@ -263,12 +604,10 @@ export const useMemoryStore = defineStore('memory', () => {
 A day full of adventures with my master! ${petName} had a wonderful time.
 
 ## Needs Status
-- Hunger: ${needsStatus.eat >= 70 ? 'Satisfied' : needsStatus.eat >= 40 ? 'Partial' : 'Missed'}
-- Sleep: ${needsStatus.sleep >= 70 ? 'Satisfied' : needsStatus.sleep >= 40 ? 'Partial' : 'Missed'}
-- Play: ${needsStatus.play >= 70 ? 'Satisfied' : needsStatus.play >= 40 ? 'Partial' : 'Missed'}
-- Love: ${needsStatus.love >= 70 ? 'Satisfied' : needsStatus.love >= 40 ? 'Partial' : 'Missed'}
-- Chat: ${needsStatus.chat >= 70 ? 'Satisfied' : needsStatus.chat >= 40 ? 'Partial' : 'Missed'}
-- Learn: ${needsStatus.learn >= 70 ? 'Satisfied' : needsStatus.learn >= 40 ? 'Partial' : 'Missed'}
+- Energy: ${needsStatus.energy >= 70 ? 'Satisfied' : needsStatus.energy >= 40 ? 'Partial' : 'Low'}
+- Play: ${needsStatus.play >= 70 ? 'Satisfied' : needsStatus.play >= 40 ? 'Partial' : 'Low'}
+- Love: ${needsStatus.love >= 70 ? 'Satisfied' : needsStatus.love >= 40 ? 'Partial' : 'Low'}
+- Learn: ${needsStatus.learn >= 70 ? 'Satisfied' : needsStatus.learn >= 40 ? 'Partial' : 'Low'}
 
 ## Conversations Today
 ${conversations.length > 0
@@ -280,9 +619,9 @@ ${userInterests.value.slice(0, 5).map(i => `- ${i.interest} (mentioned ${i.times
 
 ## My Feelings
 - ${needsStatus.love >= 70 ? 'Happy and loved' : 'A bit lonely'}
-- ${needsStatus.eat >= 70 ? 'Full and satisfied' : 'Hungry'}
-- ${needsStatus.sleep >= 70 ? 'Well rested' : 'Tired'}
-- ${needsStatus.chat >= 70 ? 'Social and engaged' : 'Bored'}
+- ${needsStatus.energy >= 70 ? 'Full of energy' : 'Tired'}
+- ${needsStatus.play >= 70 ? 'Had fun playing' : 'Want to play more'}
+- ${needsStatus.learn >= 70 ? 'Learned a lot' : 'Curious about many things'}
 
 ## Tomorrow's Plan
 - Talk about user interests
@@ -305,6 +644,109 @@ ${userInterests.value.slice(0, 5).map(i => `- ${i.interest} (mentioned ${i.times
     );
 
     return diaryContent;
+  }
+
+  // Generate daily summary using LLM
+  async function generateDailySummary(petId: string): Promise<void> {
+    // Get today's conversations
+    const today = new Date().toISOString().split('T')[0];
+    const todayMemories = memories.value.filter(m =>
+      m.timestamp.startsWith(today) && m.type === 'conversation'
+    );
+
+    if (todayMemories.length === 0) {
+      // No conversations today, create a basic summary
+      await addMemory(
+        'daily_summary' as PetMemoryType,
+        `Summary - ${today}`,
+        'Today was a quiet day with no major conversations.',
+        {
+          date: today,
+          conversationCount: 0,
+          timestamp: new Date().toISOString(),
+        },
+        8,
+        ['summary', '#daily']
+      );
+      return;
+    }
+
+    // Get user interests and evolution level for context
+    const userInterestsList = userInterests.value.map(i => i.interest).slice(0, 5);
+    const currentFriendshipLevel = friendshipLevel.value;
+
+    // Build conversation summaries
+    const conversationSummaries = todayMemories.map(m => ({
+      topic: m.title.replace('Chat: ', ''),
+      content: m.content,
+    }));
+
+    try {
+      const { useConfigStore } = await import('@/store/config');
+      const configStore = useConfigStore();
+      const llmClient = configStore.getApiClient();
+
+      const messages = [
+        {
+          role: 'system' as const,
+          content: `你是一只可爱的 AI 宠物。请根据今天的对话生成一份简洁的每日摘要。
+
+要求：
+1. 总结今天的主要话题和有趣的事情
+2. 提及用户的主要兴趣
+3. 表达今天的心情和与主人的互动
+4. 预测明天的期望
+5. 使用中文输出
+6. 长度在 100-200 字之间
+7. 包含适当的情感表达和 emoji`,
+        },
+        {
+          role: 'user' as const,
+          content: `今天是 ${today}。
+
+我的兴趣：${userInterestsList.join(', ') || '无记录'}
+友谊等级：${currentFriendshipLevel}
+
+今天的对话：
+${conversationSummaries.map((c, i) => `${i + 1}. ${c.topic}: ${c.content}`).join('\n')}
+
+请生成一份简洁的每日摘要：`,
+        },
+      ];
+
+      const response = await llmClient.chat(messages);
+
+      await addMemory(
+        'daily_summary' as PetMemoryType,
+        `Summary - ${today}`,
+        response.trim(),
+        {
+          date: today,
+          conversationCount: conversationSummaries.length,
+          interests: userInterestsList,
+          friendshipLevel: currentFriendshipLevel,
+          timestamp: new Date().toISOString(),
+        },
+        9,
+        ['summary', '#daily']
+      );
+    } catch (e) {
+      console.error('Failed to generate daily summary with LLM:', e);
+      // Fallback to template-based summary
+      await addMemory(
+        'daily_summary' as PetMemoryType,
+        `Summary - ${today}`,
+        `今天与主人进行了 ${todayMemories.length} 次对话。主要话题包括：${conversationSummaries.slice(0, 3).map(c => c.topic).join('、') || '日常生活'}。今天感觉 ${currentFriendshipLevel === 'bestFriend' ? '非常开心' : '开心'}！`,
+        {
+          date: today,
+          conversationCount: conversationSummaries.length,
+          fallback: true,
+          timestamp: new Date().toISOString(),
+        },
+        7,
+        ['summary', '#daily']
+      );
+    }
   }
 
   // Increment missed feedings counter
@@ -350,11 +792,120 @@ ${userInterests.value.slice(0, 5).map(i => `- ${i.interest} (mentioned ${i.times
     return diffMinutes >= 60;
   }
 
+  // Get status trend for a specific stat
+  function getStatusTrend(statName: string): { currentValue: number; change24h: number; trend: 'up' | 'down' | 'stable' } | undefined {
+    const statHistory = statusHistory.value
+      .filter(h => h.status[statName as keyof PetStatus] !== undefined)
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    if (statHistory.length < 2) return undefined;
+
+    const currentValue = statHistory[0].status[statName as keyof PetStatus];
+    const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recentHistory = statHistory.filter(h => new Date(h.timestamp) > dayAgo);
+
+    let change24h = 0;
+    if (recentHistory.length > 1) {
+      const firstInPeriod = recentHistory[recentHistory.length - 1];
+      change24h = currentValue - firstInPeriod.status[statName as keyof PetStatus];
+    }
+
+    let trend: 'up' | 'down' | 'stable' = 'stable';
+    if (change24h > 5) trend = 'up';
+    else if (change24h < -5) trend = 'down';
+
+    return { currentValue, change24h, trend };
+  }
+
+  // ==========================================
+  // User Profile Functions
+  // ==========================================
+
+  // Load user profile from DB
+  async function loadUserProfile(petId: string): Promise<void> {
+    try {
+      const savedProfile = await getUserProfile(petId);
+      if (savedProfile) {
+        userProfiles.value = [savedProfile];
+      } else {
+        userProfiles.value = [];
+      }
+    } catch (err) {
+      console.error(`Failed to load user profile: ${err}`);
+      userProfiles.value = [];
+    }
+  }
+
+  // Save user profile to DB (renamed to avoid conflict)
+  async function saveUserProfile(
+    profile: import('../store/user').UserProfile,
+  ): Promise<void> {
+    await saveUserProfileDB(profile);
+  }
+
+  // Update user profile
+  async function updateUserProfile(
+    id: string,
+    updates: Partial<import('../store/user').UserProfile>,
+  ): Promise<void> {
+    const db = await import('../db');
+    await db.updateUserProfile(id, updates);
+  }
+
+  // Extract user preferences from conversation content
+  function extractUserPreferences(content: string): {
+    preferences: string[];
+    dislikes: string[];
+  } {
+    const preferences: string[] = [];
+    const dislikes: string[] = [];
+    const contentLower = content.toLowerCase();
+
+    // Food preferences
+    const foodKeywords = ['pizza', 'burger', 'sushi', 'pasta', 'steak', 'salad', 'dessert', 'cake', 'chocolate'];
+    for (const keyword of foodKeywords) {
+      if (contentLower.includes(keyword)) {
+        preferences.push(keyword);
+      }
+    }
+
+    // Activity preferences
+    const activityKeywords = ['gaming', 'reading', 'music', 'sports', 'travel', 'photography', 'art', 'dance'];
+    for (const keyword of activityKeywords) {
+      if (contentLower.includes(keyword)) {
+        preferences.push(keyword);
+      }
+    }
+
+    // Music preferences
+    const musicKeywords = ['rock', 'pop', 'jazz', 'classical', 'hip hop', 'electronic', 'country', 'rap'];
+    for (const keyword of musicKeywords) {
+      if (contentLower.includes(keyword)) {
+        preferences.push(keyword);
+      }
+    }
+
+    // Dislike detection (negative sentiment indicators)
+    const negativeKeywords = ['hate', 'dislike', 'avoid', 'skip', 'never', "don't like", 'not fond'];
+    for (const keyword of negativeKeywords) {
+      if (contentLower.includes(keyword)) {
+        const match = contentLower.match(new RegExp(`${keyword}\\s+(\\w+)`));
+        if (match) {
+          dislikes.push(match[1]);
+        }
+      }
+    }
+
+    return { preferences, dislikes };
+  }
+
   return {
     memories,
-    totalMemories,
+    totalMemories: computed(() => memories.value.length),
     memoriesByType,
     averageUsefulness,
+    groupedMemories,
+    dateGroups,
     isLoading,
     error,
     loadFromDB,
@@ -367,17 +918,33 @@ ${userInterests.value.slice(0, 5).map(i => `- ${i.interest} (mentioned ${i.times
     lastMealTime,
     lastChatTopicTime,
     friendshipLevel,
+    friendshipStats,
     recordNeedSatisfied,
     recordUserInterest,
     recordEvolution,
     recordKnowledgeShared,
+    recordPetStatusHistory,
+    extractPersonalityFromConversation,
+    updatePersonalityProfile,
+    getPersonalityProfile,
     recordPetState,
     generateDailyDiary,
+    generateDailySummary,
     incrementMissedFeedings,
     resetMissedFeedings,
     isPetDead,
     isMealTime,
     isSleepTime,
     canGenerateChatTopic,
+    getStatusTrend,
+    statusHistory,
+    personalityProfiles,
+
+    // User Profile Functions
+    userProfiles,
+    loadUserProfile,
+    saveUserProfile,
+    updateUserProfile,
+    extractUserPreferences,
   };
 });

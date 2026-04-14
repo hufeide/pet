@@ -1,0 +1,4 @@
+{"file": ".trellis/workflow.md", "reason": "Project workflow and conventions"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "Frontend development guide"}
+{"file": "src/components/Chat.vue", "reason": "Main component to modify for adding status panel and animations"}
+{"file": "src/store/pet-kingdom.ts", "reason": "Store functions for pet care actions"}

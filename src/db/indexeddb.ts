@@ -1,6 +1,6 @@
 // IndexedDB for browser environment
 const DB_NAME = 'AIPetDB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 // UUID generator for browsers without crypto.randomUUID
 function generateUUID(): string {
@@ -68,12 +68,17 @@ interface SocialConversation {
   petId: string;
   characterId: string;
   characterRole: string;
-  questionsAnswered: any[];
+  characterName: string;
+  questionsAnswered: Array<{
+    question: string;
+    answer: string;
+    llmScore: number;
+  }>;
   success: boolean;
   experience: number;
   learnedTips: string[];
   timestamp: string;
-  mood: string;
+  mood: 'happy' | 'neutral' | 'sad' | 'angry';
 }
 
 interface MemoryRecord {
@@ -86,6 +91,16 @@ interface MemoryRecord {
   timestamp: string;
   usefulness: number;
   tags: string[];
+}
+
+interface UserProfile {
+  id: string;
+  petId: string;
+  name: string;
+  bio: string;
+  preferences: string[];
+  dislikes: string[];
+  lastUpdated: string;
 }
 
 function getDB(): Promise<IDBDatabase> {
@@ -135,6 +150,12 @@ function getDB(): Promise<IDBDatabase> {
         const memoryStore = db.createObjectStore('memories', { keyPath: 'id' });
         memoryStore.createIndex('petId', 'petId', { unique: false });
         memoryStore.createIndex('type', 'type', { unique: false });
+      }
+
+      // Create user_profiles store
+      if (!db.objectStoreNames.contains('user_profiles')) {
+        const profileStore = db.createObjectStore('user_profiles', { keyPath: 'id' });
+        profileStore.createIndex('petId', 'petId', { unique: false });
       }
     };
 
@@ -487,4 +508,82 @@ export async function getMemorySummary(petId: string): Promise<{
     byType,
     averageUsefulness: memories.length > 0 ? totalUsefulness / memories.length : 0,
   };
+}
+
+// User Profile DB Functions
+export async function getUserProfile(petId: string): Promise<UserProfile | undefined> {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction('user_profiles', 'readonly');
+    const store = transaction.objectStore('user_profiles');
+    const request = store.index('petId').getAll(petId);
+
+    request.onsuccess = () => {
+      const all = request.result || [];
+      db.close();
+      if (all.length > 0) {
+        // Return the first (or only) user profile for this pet
+        resolve(all[0]);
+      } else {
+        resolve(undefined);
+      }
+    };
+    request.onerror = () => {
+      db.close();
+      reject(request.error);
+    };
+  });
+}
+
+export async function saveUserProfile(profile: UserProfile): Promise<void> {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction('user_profiles', 'readwrite');
+    const store = transaction.objectStore('user_profiles');
+    const request = store.put(profile);
+
+    request.onsuccess = () => {
+      db.close();
+      resolve();
+    };
+    request.onerror = () => {
+      db.close();
+      reject(request.error);
+    };
+  });
+}
+
+export async function updateUserProfile(
+  id: string,
+  updates: Partial<UserProfile>,
+): Promise<void> {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction('user_profiles', 'readwrite');
+    const store = transaction.objectStore('user_profiles');
+    const request = store.get(id);
+
+    request.onsuccess = () => {
+      const existing = request.result;
+      if (existing) {
+        const updated = { ...existing, ...updates, lastUpdated: new Date().toISOString() };
+        const updateRequest = store.put(updated);
+        updateRequest.onsuccess = () => {
+          db.close();
+          resolve();
+        };
+        updateRequest.onerror = () => {
+          db.close();
+          reject(updateRequest.error);
+        };
+      } else {
+        db.close();
+        resolve(); // No existing profile to update
+      }
+    };
+    request.onerror = () => {
+      db.close();
+      reject(request.error);
+    };
+  });
 }

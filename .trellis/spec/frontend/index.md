@@ -71,7 +71,31 @@ npx tsc --noEmit
 npm run make
 
 # Run tests
-npm run test
+npm run test          # Unit tests (Vitest)
+npm run test:e2e      # E2E tests (Playwright)
+```
+
+---
+
+## Testing
+
+### Test Frameworks
+
+| Framework | Purpose | Command |
+|-----------|---------|---------|
+| Vitest | Unit tests for stores, utils | `npm run test` |
+| Playwright | E2E UI tests | `npm run test:e2e` |
+
+### Test Coverage
+
+- **Unit Tests**: Store logic, game mechanics, state management (28 tests)
+- **E2E Tests**: UI navigation, user interactions, AI responses (25 tests)
+
+### Running Tests
+
+```bash
+# Run all tests
+npm run test && npm run test:e2e
 ```
 
 ---

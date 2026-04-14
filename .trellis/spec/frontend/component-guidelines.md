@@ -407,6 +407,91 @@ const emit = defineEmits<{
 
 ---
 
+## UI/UX Guidelines
+
+### Section-Based Layout
+
+Complex components should be organized into clear sections with visual separation:
+
+```vue
+<template>
+  <div class="component-container">
+    <!-- Section 1: Primary Feature -->
+    <div class="section primary-section">
+      <div class="section-header">
+        <h3>Section Title</h3>
+        <span class="toggle-icon">▼</span>
+      </div>
+      <div class="section-content">
+        <!-- Section content -->
+      </div>
+    </div>
+
+    <!-- Section 2: Secondary Feature -->
+    <div class="section secondary-section">
+      <!-- ... -->
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.section {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #eee;
+}
+</style>
+```
+
+### Visual Hierarchy
+
+1. **Primary sections** use gradient backgrounds or accent colors
+2. **Secondary sections** use neutral backgrounds
+3. **Collapsible sections** improve scannability
+4. **Quick stats** use icon + value format for at-a-glance info
+
+### Pet Status Panel Design
+
+When displaying pet status in multiple places (PetParadise, Chat, Memory), follow these patterns:
+
+1. **Header**: Pet avatar + name + level + emotion badge + friendship badge
+2. **Four Core Needs**: Always display these 4 needs with consistent icons:
+   - ⚡ 能量 (Energy) — `petStatus.energy`
+   - 🎾 玩耍 (Play) — `petStatus.play`
+   - ❤️ 爱意 (Love) — `petStatus.love`
+   - 📚 知识 (Knowledge) — `petStatus.knowledge`
+3. **Action Buttons**: Rounded pill buttons with icons
+4. **Urgent Indicators**: Pulsing animations for low stats (< 40%)
+
+**Unified Stat Display**: All tabs must display the same 4 need stats from `petKingdomStore.petStatus`. Do NOT display raw memory statistics (Total, By Type, Avg Usefulness) in the pet status area.
+
+### Color Scheme
+
+- **Primary gradient**: `linear-gradient(135deg, #667eea 0%, #764ba2 100%)`
+- **Success**: `#4CAF50`
+- **Warning**: `#FF9800`
+- **Error**: `#F44336`
+- **Info**: `#2196F3`
+
+### Animations
+
+- **Urgent pulse**: `animation: pulse 1s infinite` for low stats
+- **Hover lift**: `transform: translateY(-2px)` with shadow
+- **Smooth transitions**: `transition: all 0.2s ease`
+
+---
+
 ## Related Guides
 
 - [Directory Structure](./directory-structure.md) - Component file layout

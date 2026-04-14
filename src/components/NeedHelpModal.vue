@@ -36,54 +36,63 @@ const showModal = ref(false);
 const helpContent = {
   happiness: {
     label: 'Happiness (❤️)',
-    reason: 'Neglect or loneliness causes happiness to decrease',
-    actions: 'Petting your pet, playing games together'
+    reason: 'Happiness decreases when:\n• Neglect or loneliness\n• Lack of affection\n• No playtime for extended periods\n• Low energy levels\n\nThe pet needs regular interaction and affection to stay happy.',
+    actions: 'Increase happiness by:\n• Petting your pet regularly\n• Playing games together\n• Showing affection\n• Taking photos together\n• Giving attention and love'
   },
   hunger: {
     label: 'Hunger (🍗)',
-    reason: 'Time passes and hunger naturally increases',
-    actions: 'Feeding your pet regularly'
+    reason: 'Hunger increases over time because:\n• Natural passage of time\n• Activity and movement\n• Growth and development\n\nIf hunger is too low for too long, health will start to decrease.',
+    actions: 'Increase hunger (feed) by:\n• Feeding your pet regularly\n• Providing proper meals\n• Giving snacks in moderation\n• Ensuring meal times are not missed'
   },
   health: {
     label: 'Health (❤️)',
-    reason: 'Poor care or illness causes health to decrease',
-    actions: 'Providing proper care, giving medicine when needed'
+    reason: 'Health decreases when:\n• Poor care or neglect\n• Illness or disease\n• Low happiness for extended periods\n• Low energy with no rest\n• Missed feedings at meal times\n\nHealth is affected by all other stats - when they are low, health decreases faster.',
+    actions: 'Increase health by:\n• Providing proper care regularly\n• Giving medicine when needed\n• Ensuring adequate rest\n• Keeping happiness high\n• Regular check-ups'
   },
   energy: {
     label: 'Energy (⚡)',
-    reason: 'Activity decreases energy, lack of sleep also affects it',
-    actions: 'Resting, putting pet to sleep'
+    reason: 'Energy decreases when:\n• Physical activity and play\n• Lack of sleep or rest\n• Extended periods of activity\n• Stress or anxiety\n\nLow energy affects happiness and health.',
+    actions: 'Increase energy by:\n• Resting and taking breaks\n• Putting pet to sleep when tired\n• Providing energy-boosting snacks\n• Reducing excessive activity'
   },
   sleep: {
     label: 'Sleep (💤)',
-    reason: 'Activity and lack of rest decreases sleep need',
-    actions: 'Putting pet to bed, allowing rest'
+    reason: 'Sleep need increases when:\n• Activity and play\n• Lack of sleep\n• Extended periods without rest\n• Staying up too late\n\nPets need regular sleep to function properly.',
+    actions: 'Increase sleep by:\n• Putting pet to bed\n• Allowing adequate rest\n• Creating a comfortable sleep environment\n• Avoiding disturbances during sleep'
   },
   play: {
     label: 'Play (⚽)',
-    reason: 'No playtime causes play need to decrease',
-    actions: 'Playing games, using toys'
+    reason: 'Play need increases when:\n• No playtime for extended periods\n• Boredom\n• Lack of stimulation\n• Confinement\n\nPlay is essential for happiness and mental health.',
+    actions: 'Increase play by:\n• Playing games with your pet\n• Using toys and puzzles\n• Going for walks\n• Interactive play sessions'
   },
   love: {
     label: 'Love (💖)',
-    reason: 'Neglect or lack of affection causes love to decrease',
-    actions: 'Petting, showing affection'
+    reason: 'Love decreases when:\n• Neglect or lack of attention\n• Lack of affection\n• Long periods without interaction\n• Not showing care\n\nLove is built through consistent care and affection.',
+    actions: 'Increase love by:\n• Petting and cuddling\n• Showing affection\n• Spending quality time\n• Verbal affection\n• Caregiving'
   },
   chat: {
     label: 'Chat (💬)',
-    reason: 'No conversation causes chat need to decrease',
-    actions: 'Talking to your pet'
+    reason: 'Chat need increases when:\n• No conversation for extended periods\n• Lack of social interaction\n• Isolation\n• Not talking to your pet\n\nPets are social creatures that need interaction.',
+    actions: 'Increase chat by:\n• Talking to your pet regularly\n• Having conversations\n• Explaining what you are doing\n• Reading to your pet'
   },
   knowledge: {
     label: 'Knowledge (📚)',
-    reason: 'No learning causes knowledge to decrease',
-    actions: 'Learning new topics, reading'
+    reason: 'Knowledge decreases when:\n• No learning for extended periods\n• Lack of mental stimulation\n• Not reading or learning\n• Stagnation\n\nMental stimulation is important for pet development.',
+    actions: 'Increase knowledge by:\n• Learning new topics together\n• Reading books\n• Exploring new concepts\n• Educational games\n• Asking questions'
   }
 };
 
-const needLabel = computed(() => helpContent[props.needType as keyof typeof helpContent]?.label || props.needType);
-const reason = computed(() => helpContent[props.needType as keyof typeof helpContent]?.reason || '');
-const actions = computed(() => helpContent[props.needType as keyof typeof helpContent]?.actions || '');
+const needLabel = computed(() => {
+  const key = props.needType as keyof typeof helpContent;
+  return helpContent[key]?.label || props.needType;
+});
+const reason = computed(() => {
+  const key = props.needType as keyof typeof helpContent;
+  return helpContent[key]?.reason || '';
+});
+const actions = computed(() => {
+  const key = props.needType as keyof typeof helpContent;
+  return helpContent[key]?.actions || '';
+});
 
 watch(
   () => props.show,

@@ -16,13 +16,13 @@
 
     <main class="app-main">
       <Pet v-if="currentTab === 'pet'" :showStats="true" @start-chat="startPetChat" />
-      <Chat v-if="currentTab === 'chat'" :maxHistory="50" />
       <Chat
-        v-if="isChattingWithPet"
+        v-if="currentTab === 'chat'"
         :maxHistory="50"
+        :showPetStatus="isChattingWithPet"
         @close-chat="stopPetChat"
       />
-      <Adventure v-if="currentTab === 'adventure'" />
+      <AdventureUltimate v-if="currentTab === 'ultimate'" />
       <Social v-if="currentTab === 'social'" />
       <Memory v-if="currentTab === 'memory'" />
       <Config v-if="currentTab === 'config'" />
@@ -35,23 +35,23 @@
 import { ref } from 'vue';
 import Pet from './components/Pet.vue';
 import Chat from './components/Chat.vue';
-import Adventure from './components/Adventure.vue';
+import AdventureUltimate from './components/AdventureUltimate.vue';
 import Social from './components/Social.vue';
 import Memory from './components/Memory.vue';
 import Config from './components/Config.vue';
 import PetParadise from './components/PetParadise.vue';
 
-const currentTab = ref<'pet' | 'chat' | 'adventure' | 'social' | 'memory' | 'config' | 'paradise'>('pet');
+const currentTab = ref<'pet' | 'chat' | 'ultimate' | 'social' | 'memory' | 'config' | 'paradise'>('pet');
 const isChattingWithPet = ref(false);
 
 const tabs = [
-  { id: 'pet', label: 'Pet' },
-  { id: 'chat', label: 'Chat' },
-  { id: 'adventure', label: 'Adventure' },
-  { id: 'social', label: 'Social' },
-  { id: 'memory', label: 'Memory' },
-  { id: 'config', label: 'Config' },
-  { id: 'paradise', label: 'Paradise' },
+  { id: 'pet' as const, label: 'Pet' },
+  { id: 'chat' as const, label: 'Chat' },
+  { id: 'ultimate' as const, label: 'Ultimate ⚡' },
+  { id: 'social' as const, label: 'Social' },
+  { id: 'memory' as const, label: 'Memory' },
+  { id: 'config' as const, label: 'Config' },
+  { id: 'paradise' as const, label: 'Paradise' },
 ];
 
 function startPetChat() {

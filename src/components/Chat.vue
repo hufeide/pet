@@ -1,53 +1,96 @@
 <template>
   <div class="chat-container">
-    <!-- Pet Status Panel -->
-    <div class="pet-status-panel" v-if="petStatus">
+    <!-- Pet Status Panel - only show when isChattingWithPet is true -->
+    <div class="pet-status-panel" v-if="showPetStatus && petStatus">
       <div class="status-header">
-        <h3>{{ petStatus.name }}</h3>
-        <span class="status-level">Level {{ level }}</span>
-      </div>
-      <div class="status-grid">
-        <div class="status-item">
-          <span class="status-label">❤️ Happiness</span>
-          <div class="status-bar">
-            <div class="status-fill" :style="{ width: petStatus.happiness + '%' }" :class="{ urgent: petStatus.happiness < 40 }" />
+        <div class="pet-identity">
+          <div class="pet-avatar">{{ getAvatar(petStatus.name) }}</div>
+          <div class="pet-info">
+            <h3>{{ petStatus.name }}</h3>
+            <span class="status-level">Level {{ level }}</span>
           </div>
         </div>
-        <div class="status-item">
-          <span class="status-label">🍗 Hunger</span>
-          <div class="status-bar">
-            <div class="status-fill" :style="{ width: petStatus.hunger + '%' }" :class="{ urgent: petStatus.hunger < 40 }" />
-          </div>
-        </div>
-        <div class="status-item">
-          <span class="status-label">❤️ Health</span>
-          <div class="status-bar">
-            <div class="status-fill" :style="{ width: petStatus.health + '%' }" :class="{ urgent: petStatus.health < 40 }" />
-          </div>
-        </div>
-        <div class="status-item">
-          <span class="status-label">⚡ Energy</span>
-          <div class="status-bar">
-            <div class="status-fill" :style="{ width: petStatus.energy + '%' }" :class="{ urgent: petStatus.energy < 40 }" />
-          </div>
+        <div class="status-meta">
+          <!-- Current Emotion Display -->
+          <span class="emotion-badge" :class="emotionClass" :title="'Emotion: ' + currentEmotionLabel">
+            {{ currentEmotionEmoji }}
+          </span>
+          <span class="friendship-badge" :class="friendshipLevel">
+            {{ friendshipLevelLabel }}
+          </span>
         </div>
       </div>
-      <div class="needs-grid">
-        <div class="need-item" v-for="need in needConfig" :key="need.key">
-          <div class="need-header">
-            <span class="need-label">{{ need.label }}</span>
-            <span class="need-help" @click="openNeedHelp(need.key)">?</span>
-          </div>
-          <div class="need-bar">
-            <div class="need-fill" :style="{ width: petStatus[need.key] + '%' }" :class="{ urgent: petStatus[need.key] < 40 }" />
-          </div>
+
+      <!-- Quick Stats Row - Unified 4 Needs -->
+      <div class="quick-stats-row">
+        <div class="quick-stat" :class="{ urgent: petStatus.energy < 40 }">
+          <span class="stat-icon">⚡</span>
+          <span class="stat-value">{{ petStatus.energy }}%</span>
+        </div>
+        <div class="quick-stat" :class="{ urgent: petStatus.play < 40 }">
+          <span class="stat-icon">🎾</span>
+          <span class="stat-value">{{ petStatus.play }}%</span>
+        </div>
+        <div class="quick-stat" :class="{ urgent: petStatus.love < 40 }">
+          <span class="stat-icon">❤️</span>
+          <span class="stat-value">{{ petStatus.love }}%</span>
+        </div>
+        <div class="quick-stat" :class="{ urgent: petStatus.knowledge < 40 }">
+          <span class="stat-icon">📚</span>
+          <span class="stat-value">{{ petStatus.knowledge }}%</span>
         </div>
       </div>
+
+      <!-- Friendship Progress Bar -->
+      <div class="friendship-progress" v-if="friendshipProgress < 100">
+        <span class="progress-label">To {{ nextFriendshipLevel }}:</span>
+        <div class="progress-bar">
+          <div class="progress-fill" :style="{ width: friendshipProgress + '%' }" />
+        </div>
+      </div>
+
+      <!-- Top Personality Traits -->
+      <div class="personality-traits" v-if="topTraits.length > 0">
+        <span class="trait-label">性格:</span>
+        <span class="trait-tag" v-for="trait in topTraits" :key="trait">{{ trait }}</span>
+      </div>
+
+      <!-- Pet Request -->
       <div v-if="petRequest" class="pet-request">
         <span class="request-icon">🐾</span>
         <span class="request-text">{{ petRequest }}</span>
-        <button class="request-btn" @click="handleRequest">Help</button>
+        <button class="request-btn" @click="handleRequest">帮助</button>
       </div>
+
+      <!-- Interactive Action Tags -->
+      <div class="action-tags">
+        <button class="action-tag" @click="handleAction('energy')" title="Energy - Restore energy">
+          <span class="tag-icon">⚡</span>
+          <span class="tag-text">能量</span>
+        </button>
+        <button class="action-tag" @click="handleAction('play')" title="Play - Play with pet">
+          <span class="tag-icon">🎾</span>
+          <span class="tag-text">玩耍</span>
+        </button>
+        <button class="action-tag" @click="handleAction('love')" title="Love - Show affection">
+          <span class="tag-icon">❤️</span>
+          <span class="tag-text">爱意</span>
+        </button>
+        <button class="action-tag" @click="handleAction('learn')" title="Learn - Learn new topic">
+          <span class="tag-icon">📚</span>
+          <span class="tag-text">知识</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Need Satisfaction Notification -->
+    <div v-if="needSatisfactionNotification" class="need-satisfaction-notification">
+      <span class="notification-icon">✨</span>
+      <div class="notification-content">
+        <span class="notification-text">{{ needSatisfactionNotification.text }}</span>
+        <span class="notification-subtext">+{{ needSatisfactionNotification.increase }}% {{ needSatisfactionNotification.needLabel }}</span>
+      </div>
+      <button class="notification-close" @click="closeNeedSatisfactionNotification">×</button>
     </div>
 
     <div class="chat-history" ref="chatHistoryRef">
@@ -73,14 +116,14 @@
       <textarea
         v-model="input"
         @keyup.enter="sendMessage"
-        placeholder="Say something..."
+        placeholder="输入消息..."
         :disabled="loading"
       />
       <button
         @click="sendMessage"
         :disabled="loading || !input.trim()"
       >
-        {{ loading ? '...' : 'Send' }}
+        {{ loading ? '...' : '发送' }}
       </button>
     </div>
 
@@ -105,10 +148,13 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { usePetStore } from '../store/pet';
 import { usePetKingdomStore } from '../store/pet-kingdom';
 import { useMemoryStore } from '../store/memory';
+import { useUserStore } from '../store/user';
 import NeedHelpModal from './NeedHelpModal.vue';
+import { EMOTION_MAP } from '../types/pet-kingdom';
 
 const props = defineProps<{
   maxHistory?: number;
+  showPetStatus?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -118,6 +164,7 @@ const emit = defineEmits<{
 const petStore = usePetStore();
 const petKingdomStore = usePetKingdomStore();
 const memoryStore = useMemoryStore();
+const userStore = useUserStore();
 
 const input = ref('');
 const chatHistoryRef = ref<HTMLDivElement | null>(null);
@@ -126,6 +173,56 @@ const errorMessage = ref<string | null>(null);
 
 // Pet status from kingdom store
 const petStatus = computed(() => petKingdomStore.petStatus);
+
+// Floating change display
+const floatChanges = ref<Record<string, number>>({});
+
+// Show floating change animation
+function showFloatChange(statKey: string, change: number) {
+  floatChanges.value[statKey] = change;
+  // Clear after animation (1.5s)
+  setTimeout(() => {
+    if (floatChanges.value[statKey] === change) {
+      delete floatChanges.value[statKey];
+    }
+  }, 1500);
+}
+
+// Watch pet status changes and show floating numbers
+const prevStatus = ref<typeof petStatus.value>({} as any);
+watch(petStatus, (newStatus) => {
+  if (!prevStatus.value || !newStatus) return;
+
+  const stats = [
+    'happiness', 'hunger', 'health', 'energy',
+    'sleep', 'play', 'love', 'chat', 'knowledge'
+  ] as const;
+
+  stats.forEach(stat => {
+    const oldValue = prevStatus.value[stat];
+    const newValue = newStatus[stat];
+    if (oldValue !== undefined && newValue !== undefined && oldValue !== newValue) {
+      const change = newValue - oldValue;
+      showFloatChange(stat, change);
+    }
+  });
+
+  prevStatus.value = { ...newStatus };
+}, { deep: true });
+
+// Current emotion display
+const currentEmotionEmoji = computed(() => {
+  const emotion = petStatus.value?.currentEmotion;
+  return emotion ? EMOTION_MAP[emotion as keyof typeof EMOTION_MAP]?.emoji || '🙂' : '🙂';
+});
+const currentEmotionLabel = computed(() => {
+  const emotion = petStatus.value?.currentEmotion;
+  return emotion || 'Neutral';
+});
+const emotionClass = computed(() => {
+  const emotion = petStatus.value?.currentEmotion;
+  return `emotion-${emotion?.toLowerCase() || 'neutral'}`;
+});
 
 // Current level computed from friendship
 const level = computed(() => {
@@ -140,25 +237,161 @@ const level = computed(() => {
 // Pet request for urgent needs
 const petRequest = computed(() => petKingdomStore.petRequest);
 
+// Friendship level from memory store
+const friendshipLevel = computed(() => memoryStore.friendshipLevel);
+const friendshipStats = computed(() => memoryStore.friendshipStats);
+const friendshipLevelLabel = computed(() => {
+  const labels: Record<string, string> = {
+    stranger: '陌生人',
+    acquaintance: '熟人',
+    friend: '好友',
+    bestFriend: '最佳好友',
+  };
+  return labels[friendshipLevel.value] || '陌生人';
+});
+const nextFriendshipLevel = computed(() => {
+  const next = friendshipStats.value.nextLevel;
+  const labels: Record<string, string> = {
+    stranger: 'Stranger',
+    acquaintance: 'Acquaintance',
+    friend: 'Friend',
+    bestFriend: 'Best Friend',
+  };
+  return next ? labels[next] : '';
+});
+const friendshipProgress = computed(() => friendshipStats.value.progress);
+
+// Top personality traits
+const topTraits = computed(() => {
+  const profile = memoryStore.getPersonalityProfile('default');
+  if (!profile || !profile.traits) return [];
+
+  return Object.entries(profile.traits)
+    .filter(([_, score]) => score > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([trait]) => trait.charAt(0).toUpperCase() + trait.slice(1));
+});
+
+// Periodic user profile update from chat history
+async function updateUserProfileFromChat() {
+  const chatHistory = petStore.chatHistory;
+  if (chatHistory.length === 0) return;
+
+  // Get recent messages for analysis (last 20 messages)
+  const recentMessages = chatHistory.slice(-20);
+  const combinedContent = recentMessages
+    .map(msg => (msg as any).content)
+    .join(' ');
+
+  // Extract preferences from combined content
+  const { preferences, dislikes } = userStore.extractPreferencesFromConversation(combinedContent);
+
+  // Add extracted preferences to user profile
+  for (const pref of preferences) {
+    await userStore.addPreference(pref);
+  }
+  for (const dislike of dislikes) {
+    await userStore.addDislike(dislike);
+  }
+}
+
 // Knowledge sharing interval
 const knowledgeShareInterval = ref<number | null>(null);
 
-// Need configuration with help content
+// Profile update interval (for periodic user preference extraction)
+const profileUpdateInterval = ref<number | null>(null);
+
+// Unified 4 needs configuration
 const needConfig = computed(() => [
-  { key: 'happiness', label: '❤️ Happiness', reason: 'Neglect or loneliness causes happiness to decrease', actions: 'Petting your pet, playing games together' },
-  { key: 'hunger', label: '🍗 Hunger', reason: 'Time passes and hunger naturally increases', actions: 'Feeding your pet regularly' },
-  { key: 'health', label: '❤️ Health', reason: 'Poor care or illness causes health to decrease', actions: 'Providing proper care, giving medicine when needed' },
-  { key: 'energy', label: '⚡ Energy', reason: 'Activity decreases energy, lack of sleep also affects it', actions: 'Resting, putting pet to sleep' },
-  { key: 'sleep', label: '💤 Sleep', reason: 'Activity and lack of rest decreases sleep need', actions: 'Putting pet to bed, allowing rest' },
-  { key: 'play', label: '⚽ Play', reason: 'No playtime causes play need to decrease', actions: 'Playing games, using toys' },
-  { key: 'love', label: '💖 Love', reason: 'Neglect or lack of affection causes love to decrease', actions: 'Petting, showing affection' },
-  { key: 'chat', label: '💬 Chat', reason: 'No conversation causes chat need to decrease', actions: 'Talking to your pet' },
-  { key: 'knowledge', label: '📚 Knowledge', reason: 'No learning causes knowledge to decrease', actions: 'Learning new topics, reading' },
+  { key: 'energy' as const, label: '⚡ 能量' },
+  { key: 'play' as const, label: '🎾 玩耍' },
+  { key: 'love' as const, label: '❤️ 爱意' },
+  { key: 'knowledge' as const, label: '📚 知识' },
 ]);
 
 // Help modal state
 const helpModalNeed = ref<string | null>(null);
 const isHelpModalOpen = ref(false);
+
+// Need satisfaction notification
+interface NeedSatisfaction {
+  text: string;
+  needLabel: string;
+  increase: number;
+  timestamp: number;
+}
+
+const needSatisfactionNotification = ref<NeedSatisfaction | null>(null);
+
+
+// Action handler for interactive tags
+function handleAction(action: 'energy' | 'play' | 'love' | 'learn') {
+  let statKey: string = '';
+  let increase: number = 0;
+
+  switch (action) {
+    case 'energy':
+      petKingdomStore.restoreEnergy();
+      statKey = 'energy';
+      increase = 100;
+      break;
+    case 'play':
+      petKingdomStore.playWithPet();
+      statKey = 'play';
+      increase = 100;
+      break;
+    case 'love':
+      petKingdomStore.showAffection();
+      statKey = 'love';
+      increase = 100;
+      break;
+    case 'learn':
+      petKingdomStore.learnTopic('General knowledge');
+      statKey = 'knowledge';
+      increase = 15;
+      break;
+  }
+
+  // Show floating text
+  if (statKey) {
+    showFloatChange(statKey, increase);
+  }
+
+  // Record to memory
+  memoryStore.recordNeedSatisfied('default', action as any, true);
+}
+
+// Process need satisfaction and update pet state
+async function processNeedSatisfaction(detected: ReturnType<typeof petKingdomStore.detectNeedSatisfaction>) {
+  if (!detected) return;
+
+  const increase = await petKingdomStore.processNeedSatisfaction('default', detected.need, 'conversation');
+
+  const needLabels: Record<string, string> = {
+    energy: 'Energy',
+    play: 'Play',
+    love: 'Love',
+    learn: 'Knowledge',
+  };
+
+  needSatisfactionNotification.value = {
+    text: `You satisfied ${needLabels[detected.need]} need!`,
+    needLabel: needLabels[detected.need],
+    increase,
+    timestamp: Date.now(),
+  };
+
+  // Auto-hide notification after 3 seconds
+  setTimeout(() => {
+    needSatisfactionNotification.value = null;
+  }, 3000);
+}
+
+// Close need satisfaction notification
+function closeNeedSatisfactionNotification() {
+  needSatisfactionNotification.value = null;
+}
 
 const visibleMessages = computed(() => {
   const history = petStore.chatHistory;
@@ -166,7 +399,14 @@ const visibleMessages = computed(() => {
   return history.slice(-max);
 });
 
-function sendMessage() {
+// Load conversation history when component mounts
+onMounted(async () => {
+  await petStore.loadFromDB();
+  await userStore.loadFromDB('default');
+});
+
+// Send full conversation history with context to AI
+async function sendMessage() {
   if (!input.value.trim() || loading.value) return;
 
   // Get input value before clearing
@@ -178,9 +418,45 @@ function sendMessage() {
   // Clear input immediately
   input.value = '';
 
-  // Call AI to get response
-  const messages = [{ role: 'user' as const, content: messageContent }];
-  petStore.chatWithAI(messages, (userContent, assistantContent) => {
+  // Build full conversation history for AI
+  // Include last 20 messages for context (AI handles context window)
+  const conversationHistory = petStore.chatHistory.slice(-20);
+
+  // Build messages array with conversation history
+  const messages = conversationHistory.map((msg: any) => ({
+    role: msg.role as 'user' | 'assistant',
+    content: msg.content,
+  }));
+
+  // Get context for system prompt
+  // Combine pet stats from both stores for complete context
+  const context = {
+    petStatus: {
+      name: petStatus.value.name,
+      level: level.value,
+      friendship: petStatus.value.friendship,
+      love: petStatus.value.love,
+      chat: petStatus.value.chat,
+      knowledge: petStatus.value.knowledge,
+    },
+    petStats: {
+      happiness: petStatus.value.happiness,
+      hunger: petStatus.value.hunger,
+      health: petStatus.value.health,
+      energy: petStatus.value.energy,
+      sleep: petStatus.value.sleep,
+      play: petStatus.value.play,
+    },
+    personalityProfile: memoryStore.getPersonalityProfile('default'),
+    userInterests: memoryStore.userInterests,
+    userProfile: userStore.profile,
+    // Emotion context for LLM
+    currentEmotion: petStatus.value.currentEmotion,
+    emotionPrompt: petStatus.value.currentEmotion ? EMOTION_MAP[petStatus.value.currentEmotion as keyof typeof EMOTION_MAP]?.prompt || '' : '',
+  };
+
+  // Call AI to get response with full context
+  petStore.chatWithAI(messages, context, (userContent, assistantContent) => {
     // Save conversation to memory system
     memoryStore.addMemory(
       'conversation' as const,
@@ -190,6 +466,15 @@ function sendMessage() {
       8,
       ['chat', 'conversation']
     );
+    // Extract personality from user's message
+    memoryStore.extractPersonalityFromConversation('default', userContent, 'user');
+    // Record user interests
+    const interests = ['tech', 'science', 'art', 'music', 'sports', 'food'];
+    interests.forEach(interest => {
+      if (userContent.toLowerCase().includes(interest)) {
+        memoryStore.recordUserInterest('default', interest, 'topic');
+      }
+    });
   }).catch((err) => {
     console.error('Chat error:', err);
     // Show error toast to user
@@ -199,6 +484,12 @@ function sendMessage() {
       errorMessage.value = null;
     }, 5000);
   });
+
+  // Check for need satisfaction patterns in user input using store's detection
+  const detectedNeed = petKingdomStore.detectNeedSatisfaction(messageContent);
+  if (detectedNeed) {
+    processNeedSatisfaction(detectedNeed);
+  }
 }
 
 function closeErrorToast() {
@@ -224,17 +515,21 @@ function formatDate(timestamp: string): string {
   return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
+function getAvatar(name: string): string {
+  return name.substring(0, 2).toUpperCase();
+}
+
 // Start knowledge sharing check interval when chat is open
 onMounted(() => {
-  console.log('[Chat] onMounted - loading chat history');
-  petStore.loadFromDB().then(() => {
-    console.log('[Chat] Loaded history, messages count:', petStore.chatHistory.length);
-  });
-
   // Start periodic knowledge sharing check (every 5 minutes while chat is open)
   knowledgeShareInterval.value = window.setInterval(() => {
     petKingdomStore.tryShareKnowledge();
   }, 5 * 60 * 1000); // Check every 5 minutes
+
+  // Start periodic user profile update (every 10 minutes)
+  profileUpdateInterval.value = window.setInterval(() => {
+    updateUserProfileFromChat();
+  }, 10 * 60 * 1000); // Check every 10 minutes
 });
 
 // Cleanup interval when component is unloaded
@@ -242,12 +537,14 @@ onUnmounted(() => {
   if (knowledgeShareInterval.value) {
     clearInterval(knowledgeShareInterval.value);
   }
+  if (profileUpdateInterval.value) {
+    clearInterval(profileUpdateInterval.value);
+  }
 });
 
 watch(
   () => petStore.chatHistory,
   (newHistory, oldHistory) => {
-    console.log('[Chat] Chat history changed:', newHistory.length, 'messages');
     if (chatHistoryRef.value) {
       chatHistoryRef.value.scrollTop = chatHistoryRef.value.scrollHeight;
     }
@@ -285,14 +582,14 @@ watch(
 
 .message-user {
   align-self: flex-end;
-  background: #1976D2;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border-bottom-right-radius: 2px;
 }
 
 .message-assistant {
   align-self: flex-start;
-  background: #E0E0E0;
+  background: #f5f5f5;
   color: #333;
   border-bottom-left-radius: 2px;
 }
@@ -360,17 +657,18 @@ watch(
 
 .chat-input button {
   padding: 0 16px;
-  background: #1976D2;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
   border-radius: 6px;
   cursor: pointer;
   font-weight: 500;
-  transition: background 0.2s;
+  transition: all 0.2s;
 }
 
 .chat-input button:hover:not(:disabled) {
-  background: #1565C0;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
 .chat-input button:disabled {
@@ -381,137 +679,219 @@ watch(
 /* Pet Status Panel */
 .pet-status-panel {
   padding: 16px;
-  background: #f8f9fa;
-  border-bottom: 1px solid #e0e0e0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-bottom: none;
 }
 
 .status-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
-.status-header h3 {
-  margin: 0;
-  font-size: 1.2rem;
-  color: #333;
-}
-
-.status-level {
-  font-size: 0.9rem;
-  color: #666;
-  font-weight: 500;
-}
-
-.status-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.status-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.status-label {
-  font-size: 0.85rem;
-  color: #555;
-}
-
-.status-bar {
-  width: 100%;
-  height: 8px;
-  background: #e0e0e0;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.status-fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.3s ease;
-  background: #4CAF50;
-}
-
-.status-fill.urgent {
-  background: #F44336;
-}
-
-.needs-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.need-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.need-header {
+.pet-identity {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 12px;
 }
 
-.need-label {
-  flex: 1;
-  font-size: 0.8rem;
-  color: #666;
-}
-
-.need-help {
-  width: 18px;
-  height: 18px;
-  background: #1976D2;
-  color: white;
+.pet-avatar {
+  width: 44px;
+  height: 44px;
+  background: rgba(255,255,255,0.2);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  cursor: pointer;
-  font-weight: bold;
-  transition: background 0.2s;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
 }
 
-.need-help:hover {
-  background: #1565C0;
+.pet-info h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: white;
 }
 
-.need-bar {
-  width: 100%;
+.status-level {
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.8);
+}
+
+.status-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Emotion Badge Styles */
+.emotion-badge {
+  font-size: 1.4rem;
+  padding: 4px 8px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  transition: all 0.3s ease;
+}
+
+.emotion-badge.excited {
+  background: rgba(255, 193, 7, 0.3);
+  animation: pulse 1s ease infinite;
+}
+
+.emotion-badge.melancholy {
+  background: rgba(33, 150, 243, 0.3);
+  animation: float 2s ease-in-out infinite;
+}
+
+.emotion-badge.anxious {
+  background: rgba(244, 67, 54, 0.3);
+  animation: shake 0.5s ease;
+}
+
+.emotion-badge.lazy {
+  background: rgba(76, 175, 80, 0.3);
+  opacity: 0.8;
+}
+
+.emotion-badge.neutral {
+  background: rgba(255,255,255,0.2);
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+.friendship-badge {
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+  background: rgba(255,255,255,0.2);
+  color: white;
+}
+
+.friendship-badge.stranger {
+  background: rgba(158, 158, 158, 0.5);
+}
+
+.friendship-badge.acquaintance {
+  background: rgba(33, 150, 243, 0.6);
+}
+
+.friendship-badge.friend {
+  background: rgba(76, 175, 80, 0.6);
+}
+
+.friendship-badge.bestfriend {
+  background: rgba(233, 30, 99, 0.6);
+}
+
+/* Quick Stats Row */
+.quick-stats-row {
+  display: flex;
+  justify-content: space-around;
+  padding: 10px 0;
+  margin-bottom: 12px;
+  border-top: 1px solid rgba(255,255,255,0.2);
+  border-bottom: 1px solid rgba(255,255,255,0.2);
+}
+
+.quick-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.quick-stat.urgent .stat-icon {
+  animation: pulse 1s infinite;
+}
+
+.stat-icon {
+  font-size: 1.3rem;
+}
+
+.stat-value {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: white;
+}
+
+/* Friendship Progress Bar */
+.friendship-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.9);
+}
+
+.progress-label {
+  flex-shrink: 0;
+}
+
+.progress-bar {
+  flex: 1;
   height: 6px;
-  background: #e0e0e0;
+  background: rgba(255,255,255,0.2);
   border-radius: 3px;
   overflow: hidden;
 }
 
-.need-fill {
+.progress-fill {
   height: 100%;
+  background: linear-gradient(90deg, #4caf50, #8bc34a);
   border-radius: 3px;
   transition: width 0.3s ease;
-  background: #2196F3;
 }
 
-.need-fill.urgent {
-  background: #FF9800;
+/* Personality Traits */
+.personality-traits {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  font-size: 0.75rem;
+  flex-wrap: wrap;
 }
 
+.trait-label {
+  color: rgba(255,255,255,0.8);
+}
+
+.trait-tag {
+  background: rgba(255,255,255,0.2);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+/* Pet Request */
 .pet-request {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px;
-  background: #fff3e0;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.15);
   border-radius: 8px;
-  border: 1px solid #ffe0b2;
+  margin-bottom: 12px;
 }
 
 .request-icon {
@@ -521,7 +901,7 @@ watch(
 .request-text {
   flex: 1;
   font-size: 0.9rem;
-  color: #e65100;
+  color: white;
 }
 
 .request-btn {
@@ -539,83 +919,45 @@ watch(
   background: #f57c00;
 }
 
-/* Need Help Modal Styles */
-.need-help-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+/* Action Tags */
+.action-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.action-tag {
   display: flex;
   align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.need-help-modal-content {
-  background-color: white;
-  border-radius: 12px;
-  padding: 24px;
-  width: 90%;
-  max-width: 400px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-}
-
-.need-help-modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #eee;
-}
-
-.need-help-modal-header h3 {
-  margin: 0;
-  font-size: 18px;
-  color: #333;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 24px;
+  gap: 6px;
+  padding: 8px 14px;
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 20px;
   cursor: pointer;
-  color: #999;
-  line-height: 1;
-  padding: 0;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-}
-
-.close-btn:hover {
-  background-color: #f5f5f5;
-  color: #333;
-}
-
-.help-section {
-  margin-bottom: 20px;
-}
-
-.help-section h4 {
-  margin: 0 0 8px 0;
-  font-size: 14px;
+  font-size: 0.85rem;
   font-weight: 600;
-  color: #555;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  transition: all 0.2s ease;
+  color: white;
 }
 
-.help-section p {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.6;
-  color: #666;
+.action-tag:hover {
+  background: rgba(255,255,255,0.25);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.action-tag:active {
+  transform: translateY(0);
+  background: rgba(255,255,255,0.3);
+}
+
+.tag-icon {
+  font-size: 1.1rem;
+}
+
+.tag-text {
+  font-size: 0.8rem;
 }
 
 /* Error Toast Styles */
@@ -659,6 +1001,71 @@ watch(
 
 .error-toast .error-close:hover {
   background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Need Satisfaction Notification */
+.need-satisfaction-notification {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #4caf50, #8bc34a);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 1001;
+  animation: slideDown 0.3s ease-out;
+}
+
+.need-satisfaction-notification .notification-icon {
+  font-size: 20px;
+}
+
+.need-satisfaction-notification .notification-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.need-satisfaction-notification .notification-text {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.need-satisfaction-notification .notification-subtext {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.need-satisfaction-notification .notification-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.need-satisfaction-notification .notification-close:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -20px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
 }
 
 @keyframes slideUp {
