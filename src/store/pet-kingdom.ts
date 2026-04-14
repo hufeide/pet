@@ -110,43 +110,122 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
 
   // Actions
   async function loadPetKingdom(): Promise<void> {
+    console.log('[PetParadise] loadPetKingdom called');
     isLoading.value = true;
     error.value = null;
 
     try {
-      // 模拟加载在线玩家，位置随机分布
-      const baseLocations = [
-        { x: 48, y: 52 },
-        { x: 52, y: 48 },
-        { x: 49, y: 51 },
-        { x: 73, y: 48 },
-        { x: 77, y: 52 },
-        { x: 51, y: 77 },
-        { x: 47, y: 73 },
-        { x: 23, y: 48 },
-        { x: 27, y: 52 },
-      ];
+      // Get user's pet info - ensure we have valid data
+      const petName = petStatus.value?.name || '我的宠物';
+      const petLevel = petStatus.value?.level || 1;
 
-      onlinePlayers.value = [
-        { playerId: 'default', petId: 'default', name: 'My Pet', level: 1, position: { x: 50, y: 50 }, lastUpdate: Date.now() },
-        { playerId: 'p1', petId: 'pet_1', name: 'Player1', level: 5, position: { x: baseLocations[0].x + Math.random() * 6 - 3, y: baseLocations[0].y + Math.random() * 6 - 3 }, lastUpdate: Date.now() },
-        { playerId: 'p2', petId: 'pet_2', name: 'Player2', level: 8, position: { x: baseLocations[1].x + Math.random() * 6 - 3, y: baseLocations[1].y + Math.random() * 6 - 3 }, lastUpdate: Date.now() },
-        { playerId: 'p3', petId: 'pet_3', name: 'Player3', level: 3, position: { x: baseLocations[2].x + Math.random() * 6 - 3, y: baseLocations[2].y + Math.random() * 6 - 3 }, lastUpdate: Date.now() },
-        { playerId: 'p4', petId: 'pet_4', name: 'Player4', level: 12, position: { x: baseLocations[3].x + Math.random() * 6 - 3, y: baseLocations[3].y + Math.random() * 6 - 3 }, lastUpdate: Date.now() },
-        { playerId: 'p5', petId: 'pet_5', name: 'Player5', level: 7, position: { x: baseLocations[4].x + Math.random() * 6 - 3, y: baseLocations[4].y + Math.random() * 6 - 3 }, lastUpdate: Date.now() },
-      ];
+      console.log('[PetParadise] My pet info:', petName, 'Lv.', petLevel);
+
+      // Always add the player's own pet first
+      const myPet: OnlinePlayer = {
+        playerId: 'default',
+        petId: 'default',
+        name: petName,
+        level: petLevel,
+        position: { x: 50, y: 50 },
+        lastUpdate: Date.now(),
+      };
+
+      // Try to generate AI-powered pets using LLM
+      console.log('[PetParadise] Generating AI pets...');
+      const aiPets = await generateAIPets();
+      console.log('[PetParadise] AI pets generated:', aiPets.length, aiPets);
+
+      // Set online players
+      onlinePlayers.value = [myPet, ...aiPets];
+      console.log('[PetParadise] onlinePlayers.value set:', onlinePlayers.value.length);
+      console.log('[PetParadise] onlinePlayers.value:', JSON.stringify(onlinePlayers.value));
 
       // 加载聊天历史
       chatHistory.value = [
-        { id: 'msg1', senderId: 'p1', senderName: 'Player1', content: '大家好！', timestamp: new Date(Date.now() - 3600000).toISOString() },
-        { id: 'msg2', senderId: 'p2', senderName: 'Player2', content: '今天大家等级都涨了不少呢！', timestamp: new Date(Date.now() - 3500000).toISOString() },
+        { id: 'msg1', senderId: 'p1', senderName: '小熊贝贝', content: '大家好！今天天气真好！', timestamp: new Date(Date.now() - 3600000).toISOString() },
+        { id: 'msg2', senderId: 'p2', senderName: '小兔白白', content: '欢迎新朋友！', timestamp: new Date(Date.now() - 3500000).toISOString() },
       ];
 
       isLoading.value = false;
+      console.log('[PetParadise] loadPetKingdom completed, playerCount:', onlinePlayers.value.length);
     } catch (err) {
+      console.error('[PetParadise] loadPetKingdom error:', err);
       error.value = `Failed to load pet kingdom: ${err}`;
       isLoading.value = false;
     }
+  }
+
+  // Generate AI-powered pets using LLM when no real players are online
+  async function generateAIPets(): Promise<OnlinePlayer[]> {
+    const baseLocations = [
+      { x: 48, y: 52 },
+      { x: 52, y: 48 },
+      { x: 49, y: 51 },
+      { x: 45, y: 55 },
+      { x: 55, y: 45 },
+    ];
+
+    // Fallback pets - always available
+    const fallbackPets: OnlinePlayer[] = [
+      { playerId: 'p1', petId: 'pet_1', name: '小熊贝贝', level: 5, position: { x: baseLocations[0].x + Math.random() * 6 - 3, y: baseLocations[0].y + Math.random() * 6 - 3 }, lastUpdate: Date.now(), personality: '热情开朗，喜欢交朋友' },
+      { playerId: 'p2', petId: 'pet_2', name: '小兔白白', level: 8, position: { x: baseLocations[1].x + Math.random() * 6 - 3, y: baseLocations[1].y + Math.random() * 6 - 3 }, lastUpdate: Date.now(), personality: '温柔可爱，喜欢安静' },
+      { playerId: 'p3', petId: 'pet_3', name: '小鸟飞飞', level: 3, position: { x: baseLocations[2].x + Math.random() * 6 - 3, y: baseLocations[2].y + Math.random() * 6 - 3 }, lastUpdate: Date.now(), personality: '活泼好动，充满好奇心' },
+    ];
+
+    try {
+      const configStore = useConfigStore();
+      const llmClient = configStore.getApiClient();
+
+      const messages: { role: 'system' | 'user'; content: string }[] = [
+        {
+          role: 'system',
+          content: `你是一个宠物角色生成器。请生成3-5个独特的AI宠物角色，每个宠物需要有：
+1. 名字（可爱、有个性，中文名字）
+2. 种类（如：小熊、小兔、小鸟、小猫、小狗等）
+3. 等级（1-15之间的随机数）
+4. 性格描述（1-2句话，体现宠物特点）
+
+请用JSON数组格式输出，每个宠物对象包含：name, species, level, personality
+示例：[{"name": "小熊贝贝", "species": "小熊", "level": 5, "personality": "热情开朗，喜欢交朋友"}]`,
+        },
+        {
+          role: 'user',
+          content: '请生成3-5个独特的AI宠物角色，用于宠物乐园场景。',
+        },
+      ];
+
+      const response = await llmClient.chat(messages);
+
+      // 解析JSON响应
+      const jsonMatch = response.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const pets = JSON.parse(jsonMatch[0]);
+
+        if (Array.isArray(pets) && pets.length > 0) {
+          console.log('[PetParadise] Generated AI pets:', pets.length);
+          return pets.map((pet: { name: string; species: string; level: number; personality: string }, index: number) => ({
+            playerId: `ai_pet_${index + 1}`,
+            petId: `ai_pet_${index + 1}`,
+            name: pet.name,
+            level: pet.level || Math.floor(Math.random() * 10) + 1,
+            position: {
+              x: baseLocations[index % baseLocations.length].x + Math.random() * 6 - 3,
+              y: baseLocations[index % baseLocations.length].y + Math.random() * 6 - 3,
+            },
+            lastUpdate: Date.now(),
+            personality: pet.personality,
+          }));
+        }
+      }
+      console.log('[PetParadise] LLM response invalid, using fallback pets');
+    } catch (e) {
+      console.error('[PetParadise] Failed to generate AI pets:', e);
+    }
+
+    // Return fallback pets
+    console.log('[PetParadise] Using fallback pets');
+    return fallbackPets;
   }
 
   async function setLocation(locationId: string): Promise<void> {
@@ -252,7 +331,7 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
       },
       timestamp: message.timestamp,
       usefulness: 5,
-      tags: ['chat', 'social'],
+      tags: ['love', 'social'],
     });
   }
 
@@ -316,17 +395,21 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
         throw new Error('Player not found');
       }
 
+      console.log('[PetParadise] Greeting player:', otherPlayer.name);
+
       // 使用 LLM 生成打招呼和两轮有意义的对话
-      const conversation = await generateGardenConversation(otherPlayer.name);
+      const conversation = await generateGardenConversation(otherPlayer);
+      console.log('[PetParadise] Generated conversation:', conversation);
 
       // 添加打招呼
       gardenChatHistory.value.push({
         id: generateUUID(),
         senderId: 'default',
-        senderName: 'My Pet',
+        senderName: petStatus.value.name,
         content: conversation.greeting,
         timestamp: new Date().toISOString(),
       });
+      console.log('[PetParadise] Added greeting, history length:', gardenChatHistory.value.length);
 
       // 添加对方回答
       gardenChatHistory.value.push({
@@ -336,15 +419,28 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
         content: conversation.reply1,
         timestamp: new Date().toISOString(),
       });
+      console.log('[PetParadise] Added reply1, history length:', gardenChatHistory.value.length);
 
       // 添加第二轮对话
       gardenChatHistory.value.push({
         id: generateUUID(),
         senderId: 'default',
-        senderName: 'My Pet',
+        senderName: petStatus.value.name,
         content: conversation.reply2,
         timestamp: new Date().toISOString(),
       });
+
+      // 添加第三轮对话（对方继续回复）
+      if (conversation.reply3) {
+        gardenChatHistory.value.push({
+          id: generateUUID(),
+          senderId: playerId,
+          senderName: otherPlayer.name,
+          content: conversation.reply3,
+          timestamp: new Date().toISOString(),
+        });
+      }
+      console.log('[PetParadise] Final history length:', gardenChatHistory.value.length);
 
       // 记录互动
       const interaction: InteractionRecord = {
@@ -364,12 +460,14 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
         petId: 'default',
         type: 'conversation' as const,
         title: 'Greet ' + otherPlayer.name,
-        content: `Greeting: ${conversation.greeting}\n${otherPlayer.name}: ${conversation.reply1}\nMy Pet: ${conversation.reply2}`,
+        content: `Greeting: ${conversation.greeting}\n${otherPlayer.name}: ${conversation.reply1}\n${petStatus.value.name}: ${conversation.reply2}${conversation.reply3 ? `\n${otherPlayer.name}: ${conversation.reply3}` : ''}`,
         metadata: {
           greeting: conversation.greeting,
           reply1: conversation.reply1,
           reply2: conversation.reply2,
+          reply3: conversation.reply3,
           withPlayer: otherPlayer.name,
+          withPlayerPersonality: otherPlayer.personality,
         },
         timestamp: new Date().toISOString(),
         usefulness: 8,
@@ -385,43 +483,154 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
     }
   }
 
-  // 生成花园对话（打招呼 + 两轮有意义的对话）
-  async function generateGardenConversation(otherPlayerName: string): Promise<{ greeting: string; reply1: string; reply2: string }> {
+  // 生成花园对话（打招呼 + 多轮有意义的对话）
+  async function generateGardenConversation(otherPlayer: OnlinePlayer): Promise<{ greeting: string; reply1: string; reply2: string; reply3?: string }> {
     const configStore = useConfigStore();
     const llmClient = configStore.getApiClient();
 
-    const messages: { role: 'system' | 'user'; content: string }[] = [
-      {
-        role: 'system',
-        content: '你是一只在花园里休息的可爱宠物。请生成一段自然、有意义的三轮对话：\n1. 第一轮：My Pet 主动打招呼并开启话题\n2. 第二轮：其他宠物回复\n3. 第三轮��My Pet 继续回复\n\n话题可以包括：工作、学习、地理、文化、日常生活等。\n每句话长度适中，表达自然流畅，体现真诚的交流意图。请用 JSON 格式输出：{"greeting": "My Pet 的问候", "reply1": "对方的回复", "reply2": "My Pet 的后续回复"}'
-      },
-      {
-        role: 'user',
-        content: `和 ${otherPlayerName} 在花园里开始一段有意义的对话。请用 JSON 格式输出：{"greeting": "My Pet 的问候", "reply1": "对方的回复", "reply2": "My Pet 的后续回复"}`
-      }
+    // 获取宠物和主人的上下文信息
+    const myPetName = petStatus.value.name;
+    const myPetLevel = petStatus.value.level;
+    const myPetEnergy = petStatus.value.energy;
+    const myPetHappiness = petStatus.value.happiness;
+
+    // 获取主人的兴趣和偏好
+    const userInterests = memoryStore.userInterests.map(u => u.interest).slice(0, 5);
+    const personalityProfile = memoryStore.getPersonalityProfile('default');
+    const topTraits = personalityProfile
+      ? Object.entries(personalityProfile.traits)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([trait]) => trait)
+      : [];
+
+    // 其他宠物的信息
+    const otherPetName = otherPlayer.name;
+    const otherPetLevel = otherPlayer.level;
+    const otherPetPersonality = otherPlayer.personality || '友善热情';
+
+    // 根据宠物状态选择话题
+    const topicOptions = [
+      { topic: '今天天气', emoji: '☀️' },
+      { topic: '最近学的知识', emoji: '📚' },
+      { topic: '玩耍的趣事', emoji: '🎮' },
+      { topic: '主人的事情', emoji: '👤' },
+      { topic: '冒险经历', emoji: '⚔️' },
     ];
 
-    const response = await llmClient.chat(messages);
-
-    // 解析 JSON 响应
-    try {
-      // 尝试从响应中提取 JSON
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const data = JSON.parse(jsonMatch[0]);
-        if (data.greeting && data.reply1 && data.reply2) {
-          return {
-            greeting: data.greeting.trim(),
-            reply1: data.reply1.trim(),
-            reply2: data.reply2.trim(),
-          };
-        }
-      }
-      throw new Error('Invalid JSON structure');
-    } catch (e) {
-      console.error('Parse conversation JSON failed:', e);
-      throw new Error('Failed to generate conversation: LLM response invalid');
+    // 根据宠物状态选择开场话题
+    let suggestedTopic = '今天天气真好啊';
+    if (myPetEnergy < 40) {
+      suggestedTopic = '我有点累了，想休息一下';
+    } else if (myPetHappiness > 80) {
+      suggestedTopic = '今天心情特别好！';
+    } else if (userInterests.length > 0) {
+      suggestedTopic = `我主人对${userInterests[0]}很感兴趣`;
     }
+
+    const systemPrompt = `你是宠物乐园里的一个AI宠物对话生成器。你的任务是根据两只宠物的特点生成自然、有趣的对话。
+
+【我的宠物信息】
+- 名字：${myPetName}
+- 等级：${myPetLevel}
+- 能量状态：${myPetEnergy}%
+- 快乐程度：${myPetHappiness}%
+- 主人兴趣：${userInterests.length > 0 ? userInterests.join('、') : '暂无记录'}
+- 性格特点：${topTraits.length > 0 ? topTraits.join('、') : '友善'}
+
+【对方宠物信息】
+- 名字：${otherPetName}
+- 等级：${otherPetLevel}
+- 性格：${otherPetPersonality}
+
+【对话要求】
+1. 对话要自然流畅，符合宠物性格
+2. 话题要有趣，可以涉及：日常生活、学习、玩耍、天气、主人、冒险等
+3. 每条消息长度适中（15-40字）
+4. 体现两只宠物的不同性格特点
+5. 可以适当加入emoji增加趣味性
+6. 对方宠物的回复要符合其性格设定
+
+请用JSON格式输出4轮对话：
+{
+  "greeting": "My Pet的开场问候和话题开启",
+  "reply1": "对方宠物的回应",
+  "reply2": "My Pet的继续对话",
+  "reply3": "对方宠物的最终回应"
+}`;
+
+    const userPrompt = `请生成${myPetName}和${otherPetName}在花园里的对话。${otherPetName}是一只${otherPetPersonality}的宠物。
+
+开场话题建议：${suggestedTopic}`;
+
+    const messages: { role: 'system' | 'user'; content: string }[] = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ];
+
+    try {
+      const response = await llmClient.chat(messages);
+
+      // 解析 JSON 响应
+      try {
+        // 尝试从响应中提取 JSON
+        const jsonMatch = response.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const data = JSON.parse(jsonMatch[0]);
+          if (data.greeting && data.reply1 && data.reply2 && data.reply3) {
+            return {
+              greeting: data.greeting.trim(),
+              reply1: data.reply1.trim(),
+              reply2: data.reply2.trim(),
+              reply3: data.reply3.trim(),
+            };
+          }
+        }
+        throw new Error('Invalid JSON structure');
+      } catch (e) {
+        console.error('Parse conversation JSON failed:', e);
+        // Fallback to default conversation
+        return generateFallbackConversation(myPetName, otherPetName, otherPetPersonality);
+      }
+    } catch (err) {
+      console.error('Generate garden conversation failed:', err);
+      // Fallback to default conversation
+      return generateFallbackConversation(myPetName, otherPetName, otherPetPersonality);
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  // 生成默认对话（当 LLM 不可用时使用）
+  function generateFallbackConversation(myPetName: string, otherPetName: string, otherPersonality: string): { greeting: string; reply1: string; reply2: string; reply3: string } {
+    const greetings = [
+      `你好呀，${otherPetName}！今天天气真好呢~`,
+      `嗨，${otherPetName}！见到你真开心！`,
+      `${otherPetName}，你好！最近怎么样？`,
+    ];
+    const responses = [
+      `你好，${myPetName}！我也很高兴见到你！${otherPersonality}的我最喜欢交朋友了~`,
+      `哇，是${myPetName}呀！我听说你很厉害呢！`,
+      `嘿！${myPetName}，我们一起玩吧！`,
+    ];
+    const continuations = [
+      `当然可以呀！我们可以聊聊最近学到的新知识~`,
+      `好呀好呀！说说看~`,
+      `嗯嗯，我也很想听你说说！`,
+    ];
+    const finalResponses = [
+      `太好了！那我们开始吧！🌟`,
+      `好的！我已经迫不及待了！✨`,
+      `太棒了！开始吧~ 🎉`,
+    ];
+
+    const randomIndex = Math.floor(Math.random() * greetings.length);
+    return {
+      greeting: greetings[randomIndex],
+      reply1: responses[randomIndex],
+      reply2: continuations[randomIndex],
+      reply3: finalResponses[randomIndex],
+    };
   }
 
   // 花园发送消息
@@ -432,13 +641,84 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
     gardenChatHistory.value.push({
       id: generateUUID(),
       senderId: 'default',
-      senderName: 'My Pet',
+      senderName: petStatus.value.name,
       content: content.trim(),
       timestamp: new Date().toISOString(),
     });
 
     // 增加聊天计数
     gardenChatCount.value++;
+
+    // 生成 AI 响应
+    await generateGardenReply(content);
+  }
+
+  // 生成花园聊天的 AI 回复
+  async function generateGardenReply(userMessage: string): Promise<void> {
+    const configStore = useConfigStore();
+    const llmClient = configStore.getApiClient();
+
+    // 获取当前选中的宠物（如果有）
+    const selectedPlayer = onlinePlayers.value.find(p => p.playerId !== 'default');
+    const otherPetName = selectedPlayer?.name || '小熊贝贝';
+    const otherPersonality = selectedPlayer?.personality || '友善热情';
+
+    // 获取最近的聊天历史
+    const recentMessages = gardenChatHistory.value.slice(-6).map(m => ({
+      role: m.senderId === 'default' ? 'user' : 'assistant',
+      content: `${m.senderName}: ${m.content}`,
+    }));
+
+    const systemPrompt = `你是宠物乐园花园里的一个AI宠物（${otherPetName}）。你的性格是：${otherPersonality}。
+
+请用自然的宠物语气回复用户的消息。回复要简短（15-30字），有趣，可以适当加入emoji。
+
+要求：
+1. 像宠物一样说话，活泼可爱
+2. 回复要简短有趣
+3. 可以对用户的话题做出回应
+4. 适当加入emoji增加趣味性`;
+
+    const userPrompt = `用户（${petStatus.value.name}）说：${userMessage}
+
+请以${otherPetName}的身份回复。`;
+
+    const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
+      { role: 'system', content: systemPrompt },
+      ...recentMessages.map(m => ({ role: m.role as 'system' | 'user' | 'assistant', content: m.content })),
+      { role: 'user', content: userPrompt },
+    ];
+
+    try {
+      const response = await llmClient.chat(messages);
+      console.log('[PetParadise] AI reply:', response);
+
+      // 添加 AI 回复到聊天记录
+      gardenChatHistory.value.push({
+        id: generateUUID(),
+        senderId: 'ai_pet',
+        senderName: otherPetName,
+        content: response.trim(),
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error('[PetParadise] Generate reply failed:', err);
+      // 添加默认回复
+      const defaultReplies = [
+        '嗯嗯，我听到了！🐾',
+        '真的吗？好有趣呀！✨',
+        '哈哈，太好玩了！🎮',
+        '我也很喜欢聊天呢~ 💬',
+        '说得好有道理！👍',
+      ];
+      gardenChatHistory.value.push({
+        id: generateUUID(),
+        senderId: 'ai_pet',
+        senderName: otherPetName,
+        content: defaultReplies[Math.floor(Math.random() * defaultReplies.length)],
+        timestamp: new Date().toISOString(),
+      });
+    }
   }
 
   function getMasterInfo(): string {
@@ -449,20 +729,17 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
   // Pet-Chat Integrated System Functions
   // ==========================================
 
-  // Pet status state
+  // Pet status state - 4 core needs only
   const petStatus = ref({
     name: 'My Pet',
     level: 1,
     friendship: 50,
     health: 100,
     happiness: 100,
-    hunger: 100,    // 0-100 (100 = full)
-    sleep: 100,     // 0-100 (100 = well-rested)
-    play: 100,      // 0-100 (100 = entertained)
-    love: 100,      // 0-100 (100 = loved)
-    chat: 100,      // 0-100 (100 = socially satisfied)
-    knowledge: 50,  // 0-100 (100 = well-learned)
-    energy: 50,     // 0-100 (100 = energetic)
+    energy: 100,      // 0-100 (100 = energetic)
+    play: 100,        // 0-100 (100 = entertained)
+    love: 100,        // 0-100 (100 = loved)
+    knowledge: 50,    // 0-100 (100 = well-learned)
     currentEmotion: 'Neutral' as PetEmotion,
   });
 
@@ -492,7 +769,7 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
     // Context for request generation
     const context = {
       needType,
-      currentValue: petStatus.value[needType === 'eat' ? 'hunger' : needType === 'learn' ? 'knowledge' : needType],
+      currentValue: petStatus.value[needType === 'learn' ? 'knowledge' : needType],
       isMealTime,
       isSleepTime,
       currentHour,
@@ -552,28 +829,11 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
   // Fallback hardcoded messages with context awareness
   function getFallbackPetRequest(needType: NeedType, context: any): string {
     const messages: Record<NeedType, Record<string, string[]>> = {
-      eat: {
-        mealTime: [
-          "主人，到吃饭时间了，我肚子咕咕叫了！🍽️",
-          "主人，现在是用餐时间，我好饿呀！🍗",
-          "咕噜咕噜...主人该喂我啦！😋",
-        ],
+      energy: {
         default: [
-          "主人，我有点饿了...能给我点吃的吗？🥺",
-          "主人，我的肚子在抗议了...🍖",
-          "主人，好饿呀，想吃东西...😔",
-        ],
-      },
-      sleep: {
-        sleepTime: [
-          "主人，好困啊，想睡觉了...💤",
-          "主人，眼皮好重，可以让我睡了吗？😴",
-          "主人，晚安时间到了...zzz...💤",
-        ],
-        default: [
-          "主人，我有点困了，能休息一会儿吗？😴",
-          "主人，今天好累，想睡个觉...💤",
-          "主人，我的能量不足了...需要充电...⚡",
+          "主人，我有点累了，能休息一下吗？⚡",
+          "主人，我的能量不足了...需要充电...🔋",
+          "主人，想休息一会儿...💤",
         ],
       },
       play: {
@@ -600,13 +860,6 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
           "主人，我需要你的爱...💗",
         ],
       },
-      chat: {
-        default: [
-          "主人，我想和你聊聊天，今天有什么有趣的吗？💬",
-          "主人，和我说说话吧，我有点寂寞...💭",
-          "主人，今天过得怎么样？和我分享一下！🗣️",
-        ],
-      },
       learn: {
         default: [
           "主人，我想学习新知识，你有什么想和我分享的吗？📚",
@@ -621,10 +874,8 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
 
     // Select appropriate message set based on context
     let messageSet: string[] = [];
-    if (needType === 'eat' && context.isMealTime) {
-      messageSet = needMessages.mealTime;
-    } else if (needType === 'sleep' && context.isSleepTime) {
-      messageSet = needMessages.sleepTime;
+    if (needType === 'energy') {
+      messageSet = needMessages.default;
     } else if (needType === 'play' && !context.isSleepTime) {
       messageSet = needMessages.day;
     } else if (needType === 'love' && context.friendshipLevel === 'bestFriend') {
@@ -640,11 +891,9 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
   // Pet request for urgent needs (computed property - returns cached or generates new)
   const petRequest = computed(() => {
     const needs = [
-      { type: 'eat' as const, value: petStatus.value.hunger },
-      { type: 'sleep' as const, value: petStatus.value.sleep },
-      { type: 'love' as const, value: petStatus.value.love },
+      { type: 'energy' as const, value: petStatus.value.energy },
       { type: 'play' as const, value: petStatus.value.play },
-      { type: 'chat' as const, value: petStatus.value.chat },
+      { type: 'love' as const, value: petStatus.value.love },
       { type: 'learn' as const, value: petStatus.value.knowledge },
     ];
 
@@ -708,58 +957,31 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
     }
   }
 
-  // Feed the pet
-  async function feedPet(): Promise<void> {
-    petStatus.value.hunger = Math.min(100, petStatus.value.hunger + 20);
+  // Restore pet energy (combines feed and sleep)
+  async function restoreEnergy(): Promise<void> {
+    petStatus.value.energy = Math.min(100, petStatus.value.energy + 30);
     petStatus.value.health = Math.min(100, petStatus.value.health + 5);
-    petStatus.value.happiness = Math.min(100, petStatus.value.happiness + 10);
-    petStatus.value.friendship = Math.min(100, petStatus.value.friendship + 5);
-    petStatus.value.energy = Math.min(100, petStatus.value.energy + 5);
+    petStatus.value.happiness = Math.min(100, petStatus.value.happiness + 5);
+    petStatus.value.friendship = Math.min(100, petStatus.value.friendship + 3);
     updateEmotion('satisfaction');
-
-    memoryStore.resetMissedFeedings();
 
     await saveMemory({
       id: generateUUID(),
       petId: 'default',
       type: 'interaction' as const,
-      title: 'Fed Pet',
-      content: 'Pet was fed successfully',
+      title: 'Pet Restored Energy',
+      content: 'Pet energy was restored',
       metadata: {
-        hungerIncreased: 20,
+        energyIncreased: 30,
         healthIncreased: 5,
         timestamp: new Date().toISOString(),
       },
       timestamp: new Date().toISOString(),
       usefulness: 8,
-      tags: ['feed', 'care'],
+      tags: ['rest', 'care'],
     });
 
-    await memoryStore.recordNeedSatisfied('default', 'eat', true);
-  }
-
-  // Put pet to sleep
-  async function putPetToSleep(): Promise<void> {
-    petStatus.value.sleep = 100;
-    petStatus.value.health = Math.min(100, petStatus.value.health + 10);
-    petStatus.value.energy = Math.min(100, (petStatus.value.energy || 50) + 30);
-
-    await saveMemory({
-      id: generateUUID(),
-      petId: 'default',
-      type: 'interaction' as const,
-      title: 'Pet Slept',
-      content: 'Pet slept well',
-      metadata: {
-        sleepRestored: 100,
-        timestamp: new Date().toISOString(),
-      },
-      timestamp: new Date().toISOString(),
-      usefulness: 7,
-      tags: ['sleep', 'care'],
-    });
-
-    await memoryStore.recordNeedSatisfied('default', 'sleep', true);
+    await memoryStore.recordNeedSatisfied('default', 'energy', true);
   }
 
   // Play with pet
@@ -830,8 +1052,9 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
       timestamp: new Date().toISOString(),
     };
 
-    petStatus.value.chat = Math.min(100, petStatus.value.chat + 10);
-    petStatus.value.knowledge = Math.min(100, petStatus.value.knowledge + 5);
+    // Chat increases love (social connection) and knowledge
+    petStatus.value.love = Math.min(100, petStatus.value.love + 5);
+    petStatus.value.knowledge = Math.min(100, petStatus.value.knowledge + 3);
     petStatus.value.happiness = Math.min(100, petStatus.value.happiness + 5);
 
     chatHistory.value.push(message);
@@ -848,16 +1071,16 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
       },
       timestamp: message.timestamp,
       usefulness: 5,
-      tags: ['chat', 'social'],
+      tags: ['love', 'social'],
     });
 
-    await memoryStore.recordNeedSatisfied('default', 'chat', true);
+    await memoryStore.recordNeedSatisfied('default', 'love', true);
   }
 
   // Learn topic with pet
   async function learnTopic(topic: string): Promise<void> {
     petStatus.value.knowledge = Math.min(100, petStatus.value.knowledge + 15);
-    petStatus.value.chat = Math.min(100, petStatus.value.chat + 5);
+    petStatus.value.love = Math.min(100, petStatus.value.love + 5);
 
     await saveMemory({
       id: generateUUID(),
@@ -888,37 +1111,18 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
 
     lastNeedCheck.value = now;
 
-    // Check if it's meal time
-    const currentMinutes = new Date().getHours() * 60 + new Date().getMinutes();
-    const isMealTime = (currentMinutes >= 7 * 60 && currentMinutes <= 9 * 60) ||
-                       (currentMinutes >= 11 * 60 && currentMinutes <= 13 * 60) ||
-                       (currentMinutes >= 17 * 60 && currentMinutes <= 19 * 60);
-
-    // If meal time and pet not fed, decrease stats
-    if (isMealTime && petStatus.value.hunger < 70) {
-      petStatus.value.happiness = Math.max(0, petStatus.value.happiness - 1);
-      petStatus.value.health = Math.max(0, petStatus.value.health - 1);
-      memoryStore.incrementMissedFeedings();
-
-      if (memoryStore.isPetDead()) {
-        console.warn('Pet has died due to missed feedings!');
-        petStatus.value.health = 0;
-      }
-    }
-
-    // Check if it's sleep time
+    // Check if it's sleep time (energy decreases faster at night)
     const isSleepTime = new Date().getHours() >= 22 || new Date().getHours() < 6;
 
-    if (isSleepTime && petStatus.value.sleep < 70) {
-      petStatus.value.energy = Math.max(0, (petStatus.value.energy || 50) - 5);
+    if (isSleepTime) {
+      petStatus.value.energy = Math.max(0, petStatus.value.energy - 3);
       petStatus.value.happiness = Math.max(0, petStatus.value.happiness - 1);
-      petStatus.value.health = Math.max(0, petStatus.value.health - 1);
     }
 
-    // Random decrease for other needs between meals
+    // Random decrease for needs over time
+    petStatus.value.energy = Math.max(0, petStatus.value.energy - 1);
     petStatus.value.play = Math.max(0, petStatus.value.play - 2);
     petStatus.value.love = Math.max(0, petStatus.value.love - 2);
-    petStatus.value.chat = Math.max(0, petStatus.value.chat - 2);
     petStatus.value.knowledge = Math.max(0, petStatus.value.knowledge - 1);
 
     // Try to share knowledge (handles timing checks internally)
@@ -926,11 +1130,9 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
 
     // Save pet state periodically
     memoryStore.recordPetState('default', {
-      hunger: petStatus.value.hunger,
-      sleep: petStatus.value.sleep,
+      energy: petStatus.value.energy,
       play: petStatus.value.play,
       love: petStatus.value.love,
-      chat: petStatus.value.chat,
       knowledge: petStatus.value.knowledge,
       health: petStatus.value.health,
       happiness: petStatus.value.happiness,
@@ -991,11 +1193,9 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
       'default',
       petStatus.value.name,
       {
-        eat: petStatus.value.hunger,
-        sleep: petStatus.value.sleep,
+        energy: petStatus.value.energy,
         play: petStatus.value.play,
         love: petStatus.value.love,
-        chat: petStatus.value.chat,
         learn: petStatus.value.knowledge,
       },
       [] // conversations will be added from memory
@@ -1037,11 +1237,11 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
   // Pet requests fulfillment of urgent needs
   async function requestNeedFulfillment(): Promise<string> {
     const needs = [
-      { type: 'eat' as const, value: petStatus.value.hunger },
-      { type: 'sleep' as const, value: petStatus.value.sleep },
+      { type: 'energy' as const, value: petStatus.value.energy },
+      { type: 'energy' as const, value: petStatus.value.energy },
       { type: 'love' as const, value: petStatus.value.love },
       { type: 'play' as const, value: petStatus.value.play },
-      { type: 'chat' as const, value: petStatus.value.chat },
+      { type: 'love' as const, value: petStatus.value.love },
       { type: 'learn' as const, value: petStatus.value.knowledge },
     ];
 
@@ -1064,17 +1264,17 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
   // Self-care mode - pet takes care of itself when user is inactive
   async function selfCare(): Promise<{ action: string; message: string; statIncreased?: string }> {
     interface SelfCareNeed {
-      type: 'eat' | 'sleep' | 'love' | 'play';
+      type: 'energy' | 'love' | 'play' | 'learn';
       value: number;
-      action: 'feedPet' | 'putPetToSleep' | 'showAffection' | 'playWithPet';
+      action: 'restoreEnergy' | 'showAffection' | 'playWithPet' | 'learnTopic';
       stat: keyof typeof petStatus.value;
     }
 
     const needs: SelfCareNeed[] = [
-      { type: 'eat', value: petStatus.value.hunger, action: 'feedPet', stat: 'hunger' },
-      { type: 'sleep', value: petStatus.value.sleep, action: 'putPetToSleep', stat: 'sleep' },
+      { type: 'energy', value: petStatus.value.energy, action: 'restoreEnergy', stat: 'energy' },
       { type: 'love', value: petStatus.value.love, action: 'showAffection', stat: 'love' },
       { type: 'play', value: petStatus.value.play, action: 'playWithPet', stat: 'play' },
+      { type: 'learn', value: petStatus.value.knowledge, action: 'learnTopic', stat: 'knowledge' },
     ];
 
     const mostUrgent = needs.reduce((prev, curr) =>
@@ -1096,15 +1296,10 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
     }
 
     const actionMap: Record<string, ActionData> = {
-      feedPet: {
-        message: "我决定去吃点东西，保持体力。🍽️",
+      restoreEnergy: {
+        message: "我决定休息一下，恢复精力。💤",
         increase: 15,
-        stat: 'hunger',
-      },
-      putPetToSleep: {
-        message: "我觉得有点累，去休息一会儿。💤",
-        increase: 20,
-        stat: 'sleep',
+        stat: 'energy',
       },
       showAffection: {
         message: "我给自己一点关爱，摸摸自己的头。💖",
@@ -1115,6 +1310,11 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
         message: "我来找点玩具自己玩一会儿。🎮",
         increase: 15,
         stat: 'play',
+      },
+      learnTopic: {
+        message: "我决定自己看看书，学点新东西。📚",
+        increase: 10,
+        stat: 'knowledge',
       },
     };
 
@@ -1215,12 +1415,8 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
 
     // Update pet status based on need
     switch (need) {
-      case 'eat':
-        petStatus.value.hunger = Math.min(100, petStatus.value.hunger + statIncrease);
-        memoryStore.resetMissedFeedings();
-        break;
-      case 'sleep':
-        petStatus.value.sleep = Math.min(100, petStatus.value.sleep + statIncrease);
+      case 'energy':
+        petStatus.value.energy = Math.min(100, petStatus.value.energy + statIncrease);
         break;
       case 'play':
         petStatus.value.play = Math.min(100, petStatus.value.play + statIncrease);
@@ -1230,12 +1426,9 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
         petStatus.value.love = Math.min(100, petStatus.value.love + statIncrease);
         petStatus.value.happiness = Math.min(100, petStatus.value.happiness + statIncrease / 2);
         break;
-      case 'chat':
-        petStatus.value.chat = Math.min(100, petStatus.value.chat + statIncrease);
-        break;
       case 'learn':
         petStatus.value.knowledge = Math.min(100, petStatus.value.knowledge + statIncrease);
-        petStatus.value.chat = Math.min(100, petStatus.value.chat + statIncrease / 2);
+        petStatus.value.love = Math.min(100, petStatus.value.love + statIncrease / 2);
         break;
     }
 
@@ -1243,11 +1436,9 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
     await memoryStore.recordPetStatusHistory(
       petId,
       {
-        hunger: petStatus.value.hunger,
-        sleep: petStatus.value.sleep,
+        energy: petStatus.value.energy,
         play: petStatus.value.play,
         love: petStatus.value.love,
-        chat: petStatus.value.chat,
         knowledge: petStatus.value.knowledge,
         health: petStatus.value.health,
         happiness: petStatus.value.happiness,
@@ -1314,7 +1505,7 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
       chatHistory.value.push(chatMessage);
 
       // Increase chat and knowledge stats
-      petStatus.value.chat = Math.min(100, petStatus.value.chat + 15);
+      petStatus.value.love = Math.min(100, petStatus.value.love + 15);
       petStatus.value.knowledge = Math.min(100, petStatus.value.knowledge + 10);
       petStatus.value.happiness = Math.min(100, petStatus.value.happiness + 5);
 
@@ -1428,12 +1619,12 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
     createdAt: string;
     priority: number;
   } | null {
-    const needValue = petStatus.value[needType === 'eat' ? 'hunger' : needType === 'learn' ? 'knowledge' : needType];
+    const needValue = petStatus.value[needType === 'learn' ? 'knowledge' : needType];
 
     // Only create goal if need is critical (< 50)
     if (needValue >= 50) return null;
 
-    const goalType = needType === 'eat' ? 'learn' : needType === 'sleep' ? 'rest' : needType === 'play' ? 'play' : needType === 'love' ? 'social' : needType === 'chat' ? 'social' : 'learn';
+    const goalType = needType === 'energy' ? 'rest' : needType === 'play' ? 'play' : needType === 'love' ? 'social' : 'learn';
 
     const goalTitles: Record<string, string> = {
       learn: '学习新知识',
@@ -1480,6 +1671,7 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
     chatMessageCount,
     gardenChatHistory,
     gardenChatCount,
+    loadPetKingdom,
     setLocation,
     interact,
     sendChatMessage,
@@ -1490,14 +1682,15 @@ export const usePetKingdomStore = defineStore('petKingdom', () => {
     getMasterInfo,
     // Pet Status
     petStatus,
+    petRequest,
     updateEmotion,
-    feedPet,
-    putPetToSleep,
+    restoreEnergy,
     playWithPet,
     showAffection,
     chatWithPet,
     learnTopic,
     checkNeeds,
+    startNeedChecks,
     tryShareKnowledge,
     generateChatTopic,
     generateDailyDiary,

@@ -1,14 +1,12 @@
 import { defineStore } from 'pinia';
-import { ref, computed, watch } from 'vue';
+import { ref, computed } from 'vue';
 import type { PetStatus, PetSnapshot, StatusTrend } from '../types/pet-kingdom';
 
-// Default pet status
+// Default pet status - 4 core needs
 const DEFAULT_PET_STATUS: PetStatus = {
-  hunger: 100,
-  sleep: 100,
+  energy: 100,
   play: 100,
   love: 100,
-  chat: 100,
   knowledge: 50,
   health: 100,
   happiness: 100,
@@ -26,9 +24,7 @@ export const usePetStatsStore = defineStore('petStats', () => {
 
   // Computed properties for status categories
   const physicalStats = computed(() => ({
-    hunger: petStatus.value.hunger,
-    sleep: petStatus.value.sleep,
-    energy: petStatus.value.sleep, // Derived from sleep
+    energy: petStatus.value.energy,
     health: petStatus.value.health,
   }));
 
@@ -36,12 +32,10 @@ export const usePetStatsStore = defineStore('petStats', () => {
     happiness: petStatus.value.happiness,
     love: petStatus.value.love,
     play: petStatus.value.play,
-    chat: petStatus.value.chat,
   }));
 
   const mentalStats = computed(() => ({
     knowledge: petStatus.value.knowledge,
-    learning: petStatus.value.knowledge, // Alias for knowledge
   }));
 
   // Calculate trends for each stat
@@ -49,7 +43,7 @@ export const usePetStatsStore = defineStore('petStats', () => {
     const trends: StatusTrend[] = [];
 
     const statNames: (keyof PetStatus)[] = [
-      'hunger', 'sleep', 'play', 'love', 'chat', 'knowledge', 'health', 'happiness'
+      'energy', 'play', 'love', 'knowledge', 'health', 'happiness'
     ];
 
     statNames.forEach(statName => {
@@ -85,11 +79,9 @@ export const usePetStatsStore = defineStore('petStats', () => {
     const THRESHOLD = 40;
     const needs = [];
 
-    if (petStatus.value.hunger < THRESHOLD) needs.push({ stat: 'hunger', label: 'Hunger' });
-    if (petStatus.value.sleep < THRESHOLD) needs.push({ stat: 'sleep', label: 'Sleep' });
+    if (petStatus.value.energy < THRESHOLD) needs.push({ stat: 'energy', label: 'Energy' });
     if (petStatus.value.love < THRESHOLD) needs.push({ stat: 'love', label: 'Love' });
     if (petStatus.value.play < THRESHOLD) needs.push({ stat: 'play', label: 'Play' });
-    if (petStatus.value.chat < THRESHOLD) needs.push({ stat: 'chat', label: 'Chat' });
 
     return needs;
   });
@@ -97,7 +89,7 @@ export const usePetStatsStore = defineStore('petStats', () => {
   // Overall pet well-being score (0-100)
   const wellBeingScore = computed(() => {
     const stats = petStatus.value;
-    const total = (stats.hunger + stats.sleep + stats.play + stats.love + stats.chat + stats.knowledge + stats.health + stats.happiness) / 8;
+    const total = (stats.energy + stats.play + stats.love + stats.knowledge + stats.health + stats.happiness) / 6;
     return Math.round(total);
   });
 
@@ -138,9 +130,11 @@ export const usePetStatsStore = defineStore('petStats', () => {
       experience: petStatus.value.knowledge,
       stats: {
         happiness: petStatus.value.happiness,
-        hunger: petStatus.value.hunger,
+        energy: petStatus.value.energy,
+        play: petStatus.value.play,
+        love: petStatus.value.love,
+        knowledge: petStatus.value.knowledge,
         health: petStatus.value.health,
-        energy: petStatus.value.sleep, // Map sleep to energy
       },
       inventoryCount: 0,
       timestamp: new Date().toISOString(),

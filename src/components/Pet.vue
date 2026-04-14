@@ -113,37 +113,10 @@
     <div class="pet-info">
       <h3>{{ pet.name }}</h3>
       <p class="level">{{ levelName }}</p>
-      <!-- Basic 6 stats: Happiness, Hunger, Health, Energy, Sleep, Play -->
+      <!-- Unified 4 Needs: Energy, Play, Love, Knowledge -->
       <div class="stats-grid">
         <div class="stat-item">
-          <span class="stat-label">❤️ Happiness</span>
-          <div class="stat-bar">
-            <div
-              class="stat-fill"
-              :style="{ width: pet.happiness + '%' }"
-            />
-          </div>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">🍗 Hunger</span>
-          <div class="stat-bar">
-            <div
-              class="stat-fill"
-              :style="{ width: pet.hunger + '%' }"
-            />
-          </div>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">❤️ Health</span>
-          <div class="stat-bar">
-            <div
-              class="stat-fill"
-              :style="{ width: pet.health + '%' }"
-            />
-          </div>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">⚡ Energy</span>
+          <span class="stat-label">⚡ 能量</span>
           <div class="stat-bar">
             <div
               class="stat-fill"
@@ -152,20 +125,29 @@
           </div>
         </div>
         <div class="stat-item">
-          <span class="stat-label">💤 Sleep</span>
-          <div class="stat-bar">
-            <div
-              class="stat-fill"
-              :style="{ width: pet.sleep + '%' }"
-            />
-          </div>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">⚽ Play</span>
+          <span class="stat-label">🎾 玩耍</span>
           <div class="stat-bar">
             <div
               class="stat-fill"
               :style="{ width: pet.play + '%' }"
+            />
+          </div>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">❤️ 爱意</span>
+          <div class="stat-bar">
+            <div
+              class="stat-fill"
+              :style="{ width: pet.love + '%' }"
+            />
+          </div>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">📚 知识</span>
+          <div class="stat-bar">
+            <div
+              class="stat-fill"
+              :style="{ width: pet.knowledge + '%' }"
             />
           </div>
         </div>

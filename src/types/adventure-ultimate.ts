@@ -1,7 +1,16 @@
 // Adventure Game Ultimate Types - "The Last Guardian"
 // Extended types for advanced platformer mechanics
 
-import type { Position, Velocity } from './adventure.js';
+// === Base Types ===
+export interface Position {
+  x: number;
+  y: number;
+}
+
+export interface Velocity {
+  x: number;
+  y: number;
+}
 
 // === Advanced Player State ===
 export interface AdvancedPlayerState {

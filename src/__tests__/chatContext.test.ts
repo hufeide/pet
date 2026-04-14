@@ -22,11 +22,11 @@ describe('buildSystemPrompt', () => {
       petStatus: { name: 'Buddy', level: 3, friendship: 75 },
       petStats: {
         happiness: 80,
-        hunger: 60,
+        energy: 60,
         health: 90,
-        energy: 70,
-        sleep: 85,
-        play: 75,
+        play: 70,
+        love: 85,
+        knowledge: 75,
       },
     };
 
@@ -42,28 +42,24 @@ describe('buildSystemPrompt', () => {
         level: 1,
         friendship: 50,
         love: 80,
-        chat: 70,
         knowledge: 60,
       },
       petStats: {
         happiness: 80,
-        hunger: 60,
+        energy: 60,
         health: 90,
-        energy: 70,
-        sleep: 85,
-        play: 75,
+        play: 70,
+        love: 80,
+        knowledge: 60,
       },
     };
 
     const prompt = buildSystemPrompt(context);
     expect(prompt).toContain('Happiness: 80/100');
-    expect(prompt).toContain('Hunger: 60/100');
     expect(prompt).toContain('Health: 90/100');
-    expect(prompt).toContain('Energy: 70/100');
-    expect(prompt).toContain('Sleep: 85/100');
-    expect(prompt).toContain('Play: 75/100');
+    expect(prompt).toContain('Energy: 60/100');
+    expect(prompt).toContain('Play: 70/100');
     expect(prompt).toContain('Love: 80/100');
-    expect(prompt).toContain('Chat: 70/100');
     expect(prompt).toContain('Knowledge: 60/100');
   });
 
@@ -72,11 +68,11 @@ describe('buildSystemPrompt', () => {
       petStatus: { name: 'Pet', level: 1, friendship: 50 },
       petStats: {
         happiness: 100,
-        hunger: 100,
-        health: 100,
         energy: 100,
-        sleep: 100,
+        health: 100,
         play: 100,
+        love: 100,
+        knowledge: 100,
       },
       personalityProfile: {
         traits: {
@@ -106,11 +102,11 @@ describe('buildSystemPrompt', () => {
       petStatus: { name: 'Pet', level: 1, friendship: 50 },
       petStats: {
         happiness: 100,
-        hunger: 100,
-        health: 100,
         energy: 100,
-        sleep: 100,
+        health: 100,
         play: 100,
+        love: 100,
+        knowledge: 100,
       },
       userInterests,
     };
@@ -127,11 +123,11 @@ describe('buildSystemPrompt', () => {
       petStatus: { name: 'Pet', level: 1, friendship: 50 },
       petStats: {
         happiness: 100,
-        hunger: 100,
-        health: 100,
         energy: 100,
-        sleep: 100,
+        health: 100,
         play: 100,
+        love: 100,
+        knowledge: 100,
       },
     };
 
@@ -146,11 +142,11 @@ describe('buildSystemPrompt', () => {
       petStatus: { name: 'Pet', level: 1, friendship: 50 },
       petStats: {
         happiness: 100,
-        hunger: 100,
-        health: 100,
         energy: 100,
-        sleep: 100,
+        health: 100,
         play: 100,
+        love: 100,
+        knowledge: 100,
       },
     };
 

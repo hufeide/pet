@@ -236,14 +236,14 @@ export const useMemorySynthesisStore = defineStore('memorySynthesis', () => {
     const insights: string[] = [];
 
     // Analyze status for insights
-    if (status.hunger < 30) {
-      insights.push('Pet is very hungry - needs feeding soon');
-    }
-    if (status.sleep < 30) {
+    if (status.energy < 30) {
       insights.push('Pet is very tired - needs rest');
     }
     if (status.love < 30) {
       insights.push('Pet feels lonely - needs affection');
+    }
+    if (status.play < 30) {
+      insights.push('Pet is bored - needs play');
     }
     if (status.knowledge > 70) {
       insights.push('Pet is eager to learn - good time for teaching');
@@ -273,8 +273,10 @@ export const useMemorySynthesisStore = defineStore('memorySynthesis', () => {
 
     // Check for critical needs (using available stats)
     const criticalNeeds: string[] = [];
-    if (stats.hunger < 30) criticalNeeds.push('hunger');
-    if (stats.energy < 30) criticalNeeds.push('energy'); // energy instead of sleep
+    if (stats.energy < 30) criticalNeeds.push('energy');
+    if (stats.play < 30) criticalNeeds.push('play');
+    if (stats.love < 30) criticalNeeds.push('love');
+    if (stats.knowledge < 30) criticalNeeds.push('knowledge');
     if (stats.happiness < 30) criticalNeeds.push('happiness');
     if (stats.health < 30) criticalNeeds.push('health');
 

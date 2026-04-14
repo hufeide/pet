@@ -3,7 +3,9 @@ import { test, expect } from '@playwright/test';
 test.describe('Chat Page', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to the app
-    await page.goto('http://localhost:5173');
+    await page.goto('http://localhost:5175');
+    // Navigate to chat tab
+    await page.getByText('Chat').first().click();
   });
 
   test('should navigate to Chat tab', async ({ page }) => {

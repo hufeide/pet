@@ -18,17 +18,17 @@ import { isDestructibleBlock } from '../types/adventure-ultimate.js';
 
 // === Constants ===
 const GRAVITY = 0.25;
-const JUMP_FORCE = -10;
-const VARIABLE_JUMP_CUTOFF = -6;  // Early jump release cuts velocity to this
-const WALL_JUMP_FORCE_X = 6;
-const WALL_JUMP_FORCE_Y = -8;
+const JUMP_FORCE = -7;            // Reduced: was -10, peak height ~10 tiles (fits 15-tile level)
+const VARIABLE_JUMP_CUTOFF = -4;  // Adjusted to match reduced jump force
+const WALL_JUMP_FORCE_X = 5;
+const WALL_JUMP_FORCE_Y = -7;
 const WALL_SLIDE_SPEED = 0.4;
-const FRICTION = 0.92;
-const ACCELERATION = 0.3;
-const MAX_SPEED = 0.6;
-const WALL_JUMP_COOLDOWN = 0.1;  // 100ms
-const AIR_DASH_SPEED = 1.5;
-const SLIDE_SPEED = 0.8;
+const FRICTION = 0.88;            // Slightly increased friction for more controlled stops
+const ACCELERATION = 0.2;         // Reduced: was 0.3, for less snappy acceleration
+const MAX_SPEED = 0.4;            // Reduced: was 0.6, for slower horizontal movement
+const WALL_JUMP_COOLDOWN = 0.1;   // 100ms
+const AIR_DASH_SPEED = 1.2;       // Reduced: was 1.5, for less explosive air dashes
+const SLIDE_SPEED = 0.5;          // Reduced: was 0.8, for slower slides
 
 // === Level Design: "The Spiral Descent" ===
 const ULTIMATE_LEVEL: UltimateLevel = {
@@ -37,9 +37,9 @@ const ULTIMATE_LEVEL: UltimateLevel = {
   width: 200,
   height: 15,
   spawnX: 2,
-  spawnY: 10,
+  spawnY: 9,
   flagX: 195,
-  flagY: 10,
+  flagY: 9,
   background: 'temple',
   difficulty: 5,
   phaseTransitions: [
@@ -72,28 +72,34 @@ function generateUltimateLevel(): ExtendedGameBlock[] {
   blocks.push({ x: 25, y: 6, type: 'weak', hp: 1, maxHp: 1, id: 'weak_secret' });
 
   // Section B: Puzzle Hall (x: 40-80) - Pressure plates
-  // Floating platforms
+  // Ground continues
   for (let x = 40; x < 80; x++) {
-    if ((x >= 50 && x <= 52) || (x >= 70 && x <= 72)) {
-      blocks.push({ x, y: 8, type: 'pressure_plate', id: `plate_${x}`, isPressed: false });
-    }
+    if (x >= 55 && x <= 57) continue; // Gap
+    blocks.push({ x, y: 10, type: 'ground', id: `ground2_${x}` });
+  }
+
+  // Pressure plates
+  for (let x = 45; x < 55; x++) {
+    blocks.push({ x, y: 10, type: 'pressure_plate', id: `plate_${x}`, isPressed: false });
   }
 
   // Wall sections for climbing
-  blocks.push({ x: 45, y: 10, type: 'hard', id: 'wall_b1' });
-  blocks.push({ x: 45, y: 9, type: 'hard', id: 'wall_b2' });
-  blocks.push({ x: 45, y: 8, type: 'hard', id: 'wall_b3' });
-
-  // Gap over lava
-  for (let x = 80; x < 82; x++) {
-    blocks.push({ x, y: 10, type: 'ground', id: `lava_edge_${x}` });
-  }
+  blocks.push({ x: 45, y: 9, type: 'hard', id: 'wall_b1' });
+  blocks.push({ x: 45, y: 8, type: 'hard', id: 'wall_b2' });
+  blocks.push({ x: 45, y: 7, type: 'hard', id: 'wall_b3' });
 
   // Section C: Collapse Zone (x: 80-140) - Falling platforms
+  // Ground with gaps
+  for (let x = 80; x < 140; x++) {
+    if (x >= 90 && x <= 92) continue; // Gap
+    if (x >= 110 && x <= 112) continue; // Gap
+    blocks.push({ x, y: 10, type: 'ground', id: `ground3_${x}` });
+  }
+
   // Moving platforms
   for (let i = 0; i < 5; i++) {
     blocks.push({
-      x: 90 + i * 8,
+      x: 95 + i * 8,
       y: 8,
       type: 'moving_platform',
       movingDirection: 'vertical',
@@ -105,7 +111,7 @@ function generateUltimateLevel(): ExtendedGameBlock[] {
   }
 
   // Weak blocks that will fall
-  for (let x = 110; x < 120; x++) {
+  for (let x = 115; x < 125; x++) {
     if (x % 2 === 0) {
       blocks.push({ x, y: 8, type: 'weak', hp: 2, maxHp: 2, id: `weak_collapse_${x}` });
     }
@@ -113,56 +119,55 @@ function generateUltimateLevel(): ExtendedGameBlock[] {
 
   // Wall jump tower
   for (let y = 6; y <= 10; y++) {
-    blocks.push({ x: 130, y, type: 'hard', id: `tower_${y}` });
+    blocks.push({ x: 135, y, type: 'hard', id: `tower_${y}` });
   }
 
-  // Section D: Final Ascent (x: 140-200) - Vertical climb
-  // Stairs going up
-  for (let i = 0; i < 10; i++) {
-    blocks.push({ x: 145 + i, y: 10 - i, type: 'ground', id: `ascent_${i}` });
+  // Section D: Final Stretch (x: 140-200) - Horizontal run to flag
+  // Ground continues to flag
+  for (let x = 140; x <= 200; x++) {
+    if (x >= 160 && x <= 162) continue; // Small gap
+    if (x >= 180 && x <= 182) continue; // Small gap
+    blocks.push({ x, y: 10, type: 'ground', id: `ground4_${x}` });
   }
 
-  // Flag platform
-  for (let x = 192; x <= 200; x++) {
-    blocks.push({ x, y: 2, type: 'ground', id: `end_${x}` });
-  }
-  blocks.push({ x: 195, y: 0, type: 'flag', id: 'flag' });
+  // Flag at ground level
+  blocks.push({ x: 195, y: 10, type: 'flag', id: 'flag' });
 
   return blocks;
 }
 
 function generateUltimateEnemies(): ExtendedEnemy[] {
   return [
-    // Falling statue in final ascent
-    {
-      id: generateUUID(),
-      type: 'falling_statue',
-      x: 160,
-      y: 8,
-      vx: 0,
-      vy: 0,
-      hp: 3,
-      maxHp: 3,
-      patrolStart: 160,
-      patrolEnd: 160,
-      alive: true,
-      level: 5,
-      state: 'falling',
-    },
     // Goombas in puzzle hall
     {
       id: generateUUID(),
       type: 'goomba',
-      x: 55,
+      x: 50,
       y: 10,
       vx: 0.3,
       vy: 0,
       hp: 1,
       maxHp: 1,
-      patrolStart: 50,
-      patrolEnd: 60,
+      patrolStart: 40,
+      patrolEnd: 55,
       alive: true,
       level: 3,
+      state: 'patrol',
+    },
+    // Goomba in collapse zone
+    {
+      id: generateUUID(),
+      type: 'goomba',
+      x: 100,
+      y: 10,
+      vx: 0.4,
+      vy: 0,
+      hp: 1,
+      maxHp: 1,
+      patrolStart: 85,
+      patrolEnd: 108,
+      alive: true,
+      level: 4,
       state: 'patrol',
     },
   ];
@@ -218,8 +223,6 @@ export const useAdventureUltimateStore = defineStore('adventure-ultimate', () =>
     const current = transitions.findLast(t => gameTime.value >= t.time);
     return current?.phase || 'exploration';
   });
-
-  // Phase index for future use
 
   // === Initialization ===
   function initGame(): void {
@@ -309,10 +312,21 @@ export const useAdventureUltimateStore = defineStore('adventure-ultimate', () =>
       createParticles(player.value.position.x, player.value.position.y, 'spark', 10);
     }
 
-    // Normal jump with variable height
+    // Normal jump with variable height and diagonal support
     if (isJump && player.value.onGround && !player.value.wallSliding) {
       player.value.velocity.y = JUMP_FORCE;
       player.value.onGround = false;
+
+      // Apply horizontal boost when jumping with a direction held (diagonal jump)
+      const isLeft = keys.value['ArrowLeft'] || keys.value['a'] || keys.value['A'];
+      const isRight = keys.value['ArrowRight'] || keys.value['d'] || keys.value['D'];
+      if (isLeft) {
+        player.value.velocity.x = -MAX_SPEED * 0.8;
+        player.value.facing = 'left';
+      } else if (isRight) {
+        player.value.velocity.x = MAX_SPEED * 0.8;
+        player.value.facing = 'right';
+      }
 
       // Jump particles
       createParticles(player.value.position.x + 0.5, player.value.position.y + 1, 'dust', 5);
@@ -324,8 +338,8 @@ export const useAdventureUltimateStore = defineStore('adventure-ultimate', () =>
       player.value.slideVelocity = player.value.facing === 'right' ? SLIDE_SPEED : -SLIDE_SPEED;
     }
 
-    // Air dash
-    if (isJump && !player.value.onGround && player.value.airDashesRemaining > 0) {
+    // Air dash - only when in air and NOT wall sliding
+    if (isJump && !player.value.onGround && !player.value.wallSliding && player.value.airDashesRemaining > 0) {
       player.value.velocity.x = player.value.facing === 'right' ? AIR_DASH_SPEED : -AIR_DASH_SPEED;
       player.value.velocity.y = -0.5;
       player.value.airDashesRemaining--;
@@ -372,8 +386,16 @@ export const useAdventureUltimateStore = defineStore('adventure-ultimate', () =>
     // Update events
     updateLevelEvents();
 
-    // Check if stuck
-    checkStuck();
+    // Update moving platforms
+    updateMovingPlatforms(dt);
+
+    // Update pressure plates
+    updatePressurePlates(dt);
+
+    // Check if stuck (non-blocking)
+    checkStuck().catch(() => {
+      // Silently handle errors to prevent game crash
+    });
 
     // Apply physics
     applyPhysics(dt);
@@ -394,8 +416,24 @@ export const useAdventureUltimateStore = defineStore('adventure-ultimate', () =>
     checkWinCondition();
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function applyPhysics(dt: number): void {
+    // Ground snap - ensure player is on ground if at ground level
+    if (!player.value.onGround && player.value.velocity.y >= 0) {
+      for (const block of level.value.blocks) {
+        if (block.type === 'air' || block.type === 'pressure_plate') continue;
+        // Check if player is standing exactly on a block
+        if (player.value.position.y + 1 >= block.y &&
+            player.value.position.y + 1 <= block.y + 0.1 &&
+            player.value.position.x + 0.5 > block.x &&
+            player.value.position.x < block.x + 1) {
+          player.value.position.y = block.y - 1;
+          player.value.velocity.y = 0;
+          player.value.onGround = true;
+          break;
+        }
+      }
+    }
+
     // Horizontal movement with momentum
     let targetVelX = 0;
     const isLeft = keys.value['ArrowLeft'] || keys.value['a'] || keys.value['A'];
@@ -428,41 +466,11 @@ export const useAdventureUltimateStore = defineStore('adventure-ultimate', () =>
       player.value.velocity.y = Math.min(player.value.velocity.y, WALL_SLIDE_SPEED);
     }
 
-    // === Horizontal Movement ===
+    // === Horizontal Movement (PREDICTIVE COLLISION) ===
     const nextX = player.value.position.x + player.value.velocity.x;
-    player.value.position.x = nextX;
 
-    // Horizontal collision
-    handleHorizontalCollision();
-
-    // === Vertical Movement ===
-    const nextY = player.value.position.y + player.value.velocity.y;
-    player.value.position.y = nextY;
-
-    // Vertical collision
-    handleVerticalCollision();
-
-    // Wall slide detection
-    detectWallSlide();
-
-    // Bounds checking
-    if (player.value.position.x < 0) player.value.position.x = 0;
-    if (player.value.position.x > level.value.width) player.value.position.x = level.value.width;
-
-    // Fall death
-    if (player.value.position.y > level.value.height + 2) {
-      die('fell');
-    }
-  }
-
-  function handleHorizontalCollision(): void {
-    const playerBox = {
-      left: player.value.position.x,
-      right: player.value.position.x + 0.5,
-      top: player.value.position.y,
-      bottom: player.value.position.y + 1,
-    };
-
+    // Horizontal collision - check BEFORE updating position
+    let blockedX = false;
     for (const block of level.value.blocks) {
       if (block.type === 'air') continue;
       if (block.type === 'pressure_plate') continue; // Pass through plates
@@ -472,6 +480,14 @@ export const useAdventureUltimateStore = defineStore('adventure-ultimate', () =>
         right: block.x + 1,
         top: block.y,
         bottom: block.y + 1,
+      };
+
+      // Player box at next position
+      const playerBox = {
+        left: nextX,
+        right: nextX + 0.5,
+        top: player.value.position.y,
+        bottom: player.value.position.y + 1,
       };
 
       // Check vertical overlap
@@ -490,6 +506,8 @@ export const useAdventureUltimateStore = defineStore('adventure-ultimate', () =>
           if (player.value.isSliding && isDestructibleBlock(block)) {
             breakBlock(block);
           }
+          blockedX = true;
+          break;
         }
       } else if (player.value.velocity.x < 0) {
         // Moving left, hit right side of block
@@ -500,20 +518,23 @@ export const useAdventureUltimateStore = defineStore('adventure-ultimate', () =>
           if (player.value.isSliding && isDestructibleBlock(block)) {
             breakBlock(block);
           }
+          blockedX = true;
+          break;
         }
       }
     }
-  }
 
-  function handleVerticalCollision(): void {
-    const playerBox = {
-      left: player.value.position.x,
-      right: player.value.position.x + 0.5,
-      top: player.value.position.y,
-      bottom: player.value.position.y + 1,
-    };
+    // Only update X if not blocked
+    if (!blockedX) {
+      player.value.position.x = nextX;
+    }
 
+    // === Vertical Movement (PREDICTIVE COLLISION) ===
+    const nextY = player.value.position.y + player.value.velocity.y;
+
+    // Vertical collision - check BEFORE updating position
     player.value.onGround = false;
+    let blockedY = false;
 
     for (const block of level.value.blocks) {
       if (block.type === 'air') continue;
@@ -525,14 +546,23 @@ export const useAdventureUltimateStore = defineStore('adventure-ultimate', () =>
         bottom: block.y + (block.type === 'pressure_plate' ? 0.2 : 1),
       };
 
+      // Player box at next position
+      const playerBox = {
+        left: player.value.position.x,
+        right: player.value.position.x + 0.5,
+        top: nextY,
+        bottom: nextY + 1,
+      };
+
       // Check horizontal overlap
-      if (playerBox.right <= blockBox.left || playerBox.left >= blockBox.right) {
+      const hasHorizontalOverlap = !(playerBox.right <= blockBox.left || playerBox.left >= blockBox.right);
+      if (!hasHorizontalOverlap) {
         continue;
       }
 
-      // Landing on top
-      if (player.value.velocity.y >= 0 && playerBox.bottom >= blockBox.top) {
-        if (player.value.position.y + 1 <= blockBox.top + 0.5) {
+      // Landing on top (falling down onto block)
+      if (player.value.velocity.y >= 0) {
+        if (playerBox.bottom >= blockBox.top && player.value.position.y + 1 <= blockBox.top + 0.5) {
           player.value.position.y = blockBox.top - 1;
           player.value.velocity.y = 0;
           player.value.onGround = true;
@@ -543,27 +573,42 @@ export const useAdventureUltimateStore = defineStore('adventure-ultimate', () =>
             block.pressureTimer = 2; // Hold for 2 seconds
           }
 
-          return;
+          blockedY = true;
+          break;
         }
-      }
-
-      // Hitting head
-      if (player.value.velocity.y < 0 && playerBox.top <= blockBox.bottom) {
-        if (player.value.position.y + 1 > blockBox.bottom - 0.5) {
+      } else {
+        // Hitting ceiling (moving up into block)
+        if (playerBox.top < blockBox.bottom && player.value.position.y >= blockBox.bottom - 0.5) {
           player.value.position.y = blockBox.bottom;
           player.value.velocity.y = 0;
-
-          // Break weak blocks when hitting head
-          if (isDestructibleBlock(block)) {
-            breakBlock(block);
-          }
+          blockedY = true;
+          break;
         }
       }
+    }
+
+    // Only update Y if not blocked
+    if (!blockedY) {
+      player.value.position.y = nextY;
+    }
+
+    // Wall slide detection - check BOTH directions
+    detectWallSlide();
+
+    // Bounds checking
+    if (player.value.position.x < 0) player.value.position.x = 0;
+    if (player.value.position.x > level.value.width) player.value.position.x = level.value.width;
+
+    // Fall death
+    if (player.value.position.y > level.value.height + 2) {
+      die('fell');
     }
   }
 
   function detectWallSlide(): void {
-    const isTouchingWall = checkWallContact();
+    const isTouchingWallLeft = checkWallContact('left');
+    const isTouchingWallRight = checkWallContact('right');
+    const isTouchingWall = isTouchingWallLeft || isTouchingWallRight;
     const canSlide = player.value.velocity.y > 0 && !player.value.onGround;
 
     if (isTouchingWall && canSlide) {
@@ -572,13 +617,18 @@ export const useAdventureUltimateStore = defineStore('adventure-ultimate', () =>
         createParticles(player.value.position.x, player.value.position.y, 'dust', 3);
       }
       player.value.wallSliding = true;
+      // Update facing direction based on which wall we're touching
+      if (isTouchingWallLeft) player.value.facing = 'left';
+      if (isTouchingWallRight) player.value.facing = 'right';
     } else {
       player.value.wallSliding = false;
     }
   }
 
-  function checkWallContact(): boolean {
-    const checkX = player.value.facing === 'right' ? player.value.position.x + 0.5 : player.value.position.x;
+  function checkWallContact(direction: 'left' | 'right'): boolean {
+    const checkX = direction === 'right'
+      ? player.value.position.x + 0.5
+      : player.value.position.x;
 
     for (const block of level.value.blocks) {
       if (block.type === 'air' || block.type === 'pressure_plate') continue;
@@ -588,12 +638,42 @@ export const useAdventureUltimateStore = defineStore('adventure-ultimate', () =>
       const blockTop = block.y;
       const blockBottom = block.y + 1;
 
+      // Check if player's side is touching the block
       if (checkX >= blockLeft - 0.05 && checkX <= blockRight + 0.05 &&
           player.value.position.y + 0.5 > blockTop && player.value.position.y + 0.5 < blockBottom) {
         return true;
       }
     }
     return false;
+  }
+
+  // === Moving Platforms ===
+  function updateMovingPlatforms(dt: number): void {
+    for (const block of level.value.blocks) {
+      if (block.type === 'moving_platform' && block.movingDirection === 'vertical') {
+        // Simple oscillation
+        const baseY = 8;
+        const range = block.movingRange || 3;
+        const speed = block.movingSpeed || 0.5;
+        const offset = block.movingOffset || 0;
+
+        block.y = baseY + Math.sin(gameTime.value * speed + offset) * range;
+      }
+    }
+  }
+
+  // === Pressure Plates ===
+  function updatePressurePlates(dt: number): void {
+    for (const block of level.value.blocks) {
+      if (block.type === 'pressure_plate' && block.isPressed) {
+        if (block.pressureTimer !== undefined) {
+          block.pressureTimer -= dt;
+          if (block.pressureTimer <= 0) {
+            block.isPressed = false;
+          }
+        }
+      }
+    }
   }
 
   // === Destruction ===
@@ -696,6 +776,22 @@ export const useAdventureUltimateStore = defineStore('adventure-ultimate', () =>
           enemy.vx *= -1;
         }
 
+        // Simple ground check for enemies
+        enemy.vy += GRAVITY;
+        enemy.y += enemy.vy;
+
+        // Check for ground collision
+        const groundBlock = level.value.blocks.find(b =>
+          b.type !== 'air' &&
+          b.type !== 'pressure_plate' &&
+          Math.floor(enemy.x) === b.x &&
+          Math.floor(enemy.y) + 1 === b.y
+        );
+        if (groundBlock) {
+          enemy.y = groundBlock.y - 1;
+          enemy.vy = 0;
+        }
+
         // Collision with player
         if (checkPlayerEnemyCollision(enemy)) {
           if (player.value.velocity.y > 0 && player.value.position.y < enemy.y) {
@@ -708,16 +804,6 @@ export const useAdventureUltimateStore = defineStore('adventure-ultimate', () =>
           } else if (!player.value.invincible) {
             takeDamage(1, enemy);
           }
-        }
-      }
-
-      // Falling statue
-      if (enemy.state === 'falling' && enemy.type === 'falling_statue') {
-        enemy.vy += GRAVITY;
-        enemy.y += enemy.vy;
-
-        if (checkPlayerEnemyCollision(enemy)) {
-          takeDamage(3, enemy); // Instant death
         }
       }
     });
@@ -872,16 +958,16 @@ export const useAdventureUltimateStore = defineStore('adventure-ultimate', () =>
 
   // === Camera ===
   function updateCamera(): void {
-    // Smooth camera follow
+    // Smooth camera follow (horizontal only for 2D side-scroller)
     const targetX = player.value.position.x - 6;
-    const targetY = player.value.position.y - 4;
 
     cameraX.value += (targetX - cameraX.value) * 0.1;
-    cameraY.value += (targetY - cameraY.value) * 0.1;
 
-    // Clamp
+    // Clamp horizontal
     cameraX.value = Math.max(0, Math.min(cameraX.value, level.value.width - 12));
-    cameraY.value = Math.max(0, Math.min(cameraY.value, level.value.height - 8));
+
+    // Fixed vertical position
+    cameraY.value = 0;
   }
 
   // === Win Condition ===

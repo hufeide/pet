@@ -36,15 +36,13 @@ export const MEAL_TIMES = {
 export const SLEEP_HOURS = { start: 22, end: 6 };  // 22:00-06:00
 
 // Need types
-export type NeedType = 'eat' | 'sleep' | 'play' | 'love' | 'chat' | 'learn';
+export type NeedType = 'energy' | 'play' | 'love' | 'learn';
 
 // Pet status interface
 export interface PetStatus {
-  hunger: number;
-  sleep: number;
+  energy: number;
   play: number;
   love: number;
-  chat: number;
   knowledge: number;
   health: number;
   happiness: number;
@@ -308,11 +306,10 @@ export const useMemoryStore = defineStore('memory', () => {
 
   // Record a need satisfaction event
   async function recordNeedSatisfied(petId: string, need: NeedType, satisfied: boolean): Promise<void> {
-    const tag = need === 'eat' ? '#hunger' :
-                need === 'sleep' ? '#sleep' :
+    const tag = need === 'energy' ? '#energy' :
                 need === 'play' ? '#play' :
                 need === 'love' ? '#love' :
-                need === 'learn' ? '#learn' : '#chat';
+                '#learn';
 
     await addMemory(
       'need_satisfied' as PetMemoryType,
@@ -607,12 +604,10 @@ export const useMemoryStore = defineStore('memory', () => {
 A day full of adventures with my master! ${petName} had a wonderful time.
 
 ## Needs Status
-- Hunger: ${needsStatus.eat >= 70 ? 'Satisfied' : needsStatus.eat >= 40 ? 'Partial' : 'Missed'}
-- Sleep: ${needsStatus.sleep >= 70 ? 'Satisfied' : needsStatus.sleep >= 40 ? 'Partial' : 'Missed'}
-- Play: ${needsStatus.play >= 70 ? 'Satisfied' : needsStatus.play >= 40 ? 'Partial' : 'Missed'}
-- Love: ${needsStatus.love >= 70 ? 'Satisfied' : needsStatus.love >= 40 ? 'Partial' : 'Missed'}
-- Chat: ${needsStatus.chat >= 70 ? 'Satisfied' : needsStatus.chat >= 40 ? 'Partial' : 'Missed'}
-- Learn: ${needsStatus.learn >= 70 ? 'Satisfied' : needsStatus.learn >= 40 ? 'Partial' : 'Missed'}
+- Energy: ${needsStatus.energy >= 70 ? 'Satisfied' : needsStatus.energy >= 40 ? 'Partial' : 'Low'}
+- Play: ${needsStatus.play >= 70 ? 'Satisfied' : needsStatus.play >= 40 ? 'Partial' : 'Low'}
+- Love: ${needsStatus.love >= 70 ? 'Satisfied' : needsStatus.love >= 40 ? 'Partial' : 'Low'}
+- Learn: ${needsStatus.learn >= 70 ? 'Satisfied' : needsStatus.learn >= 40 ? 'Partial' : 'Low'}
 
 ## Conversations Today
 ${conversations.length > 0
@@ -624,9 +619,9 @@ ${userInterests.value.slice(0, 5).map(i => `- ${i.interest} (mentioned ${i.times
 
 ## My Feelings
 - ${needsStatus.love >= 70 ? 'Happy and loved' : 'A bit lonely'}
-- ${needsStatus.eat >= 70 ? 'Full and satisfied' : 'Hungry'}
-- ${needsStatus.sleep >= 70 ? 'Well rested' : 'Tired'}
-- ${needsStatus.chat >= 70 ? 'Social and engaged' : 'Bored'}
+- ${needsStatus.energy >= 70 ? 'Full of energy' : 'Tired'}
+- ${needsStatus.play >= 70 ? 'Had fun playing' : 'Want to play more'}
+- ${needsStatus.learn >= 70 ? 'Learned a lot' : 'Curious about many things'}
 
 ## Tomorrow's Plan
 - Talk about user interests

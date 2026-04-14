@@ -4,7 +4,10 @@
     <div class="panel-header">
       <div class="title-section">
         <h3>The Last Guardian</h3>
-        <span class="phase-badge" :class="currentPhase">
+        <span
+          class="phase-badge"
+          :class="currentPhase"
+        >
           {{ phaseDisplay }}
         </span>
       </div>
@@ -35,7 +38,7 @@
             animationDelay: -(i * 2) + 's',
             opacity: 0.1 + (i % 5) * 0.1,
           }"
-        ></div>
+        />
       </div>
 
       <!-- Game World (with screen shake) -->
@@ -53,8 +56,8 @@
         <div class="blocks-layer">
           <div
             v-for="block in levelBlocks"
-            :key="block.id || `${block.x}-${block.y}`"
             v-show="block.type !== 'air'"
+            :key="block.id || `${block.x}-${block.y}`"
             class="block"
             :class="[
               `block-${block.type}`,
@@ -80,8 +83,8 @@
         <div class="enemies-layer">
           <div
             v-for="enemy in enemies"
-            :key="enemy.id"
             v-show="enemy.alive"
+            :key="enemy.id"
             class="enemy"
             :class="`enemy-${enemy.type}`"
             :style="{
@@ -111,7 +114,7 @@
               width: (particle.size || 0.5) * 8 + 'px',
               height: (particle.size || 0.5) * 8 + 'px',
             }"
-          ></div>
+          />
         </div>
 
         <!-- Player -->
@@ -132,17 +135,17 @@
         >
           <!-- Player body -->
           <div class="player-body">
-            <div class="player-torso"></div>
-            <div class="player-legs"></div>
+            <div class="player-torso" />
+            <div class="player-legs" />
           </div>
           <div class="player-head">
             <div class="player-face">
-              <div class="eye left"></div>
-              <div class="eye right"></div>
+              <div class="eye left" />
+              <div class="eye right" />
             </div>
           </div>
           <!-- Cape for momentum visualization -->
-          <div class="player-cape"></div>
+          <div class="player-cape" />
         </div>
 
         <!-- AI Narrative Overlay -->
@@ -151,7 +154,9 @@
           class="narrative-overlay"
           :class="narrativeUrgency"
         >
-          <div class="narrator-avatar">👑</div>
+          <div class="narrator-avatar">
+            👑
+          </div>
           <div class="narrative-bubble">
             <span class="narrator-name">Aethel:</span>
             <span class="narrator-text">{{ narrativeMessage }}</span>
@@ -159,25 +164,35 @@
         </div>
 
         <!-- Game Over Overlay -->
-        <div v-if="player.dead" class="overlay overlay-dead">
+        <div
+          v-if="player.dead"
+          class="overlay overlay-dead"
+        >
           <div class="overlay-content">
             <h2>💀 You Fell</h2>
             <p>Time: {{ Math.floor(gameTime) }}s</p>
             <p>Score: {{ score }}</p>
             <p>Deaths: {{ deathCount }}</p>
-            <button @click="restartGame">Try Again</button>
+            <button @click="restartGame">
+              Try Again
+            </button>
           </div>
         </div>
 
         <!-- Victory Overlay -->
-        <div v-if="player.win" class="overlay overlay-win">
+        <div
+          v-if="player.win"
+          class="overlay overlay-win"
+        >
           <div class="overlay-content">
             <h2>🚀 Freedom!</h2>
             <p>You escaped the collapsing temple</p>
             <p>Time: {{ Math.floor(gameTime) }}s</p>
             <p>Score: {{ score }}</p>
             <p>Deaths: {{ deathCount }}</p>
-            <button @click="restartGame">Play Again</button>
+            <button @click="restartGame">
+              Play Again
+            </button>
           </div>
         </div>
       </div>
@@ -217,8 +232,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, styleValue } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useAdventureUltimateStore } from '../store/adventure-ultimate';
+import { aiNarrator } from '../services/ai-narrator';
 
 const adventureStore = useAdventureUltimateStore();
 
@@ -296,16 +312,19 @@ const backgroundStyle = computed(() => {
 const animationFrameId = ref<number | null>(null);
 let lastTime = 0;
 let isFirstFrame = true;
+let hasStarted = false;
 
 function gameLoop(timestamp: number): void {
+  // Initialize lastTime on first frame to avoid huge dt
+  if (!hasStarted) {
+    lastTime = timestamp;
+    hasStarted = true;
+  }
+
   const dt = Math.min((timestamp - lastTime) / 1000, 0.1); // Cap at 100ms
   lastTime = timestamp;
 
-  if (!isFirstFrame) {
-    adventureStore.update(dt);
-  } else {
-    isFirstFrame = false;
-  }
+  adventureStore.update(dt);
 
   animationFrameId.value = requestAnimationFrame(gameLoop);
 }
@@ -320,8 +339,15 @@ function handleKeyUp(e: KeyboardEvent): void {
 }
 
 // Lifecycle
-onMounted(() => {
+onMounted(async () => {
+  // Initialize AI narrator after Pinia is set up
+  await aiNarrator.initialize().catch(err => {
+    console.error('AI Narrator init error:', err);
+  });
+
+  // Initialize game
   adventureStore.initGame();
+
   lastTime = performance.now();
   animationFrameId.value = requestAnimationFrame(gameLoop);
   window.addEventListener('keydown', handleKeyDown);
@@ -338,7 +364,7 @@ onUnmounted(() => {
 
 function restartGame(): void {
   adventureStore.initGame();
-  isFirstFrame = true;
+  hasStarted = false;
   lastTime = 0;
 }
 </script>

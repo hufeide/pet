@@ -4,14 +4,12 @@ import { useMemoryStore } from '@/store/memory';
 interface HeartbeatConfig {
   intervalMs: number;
   decayRates: {
-    hunger: { base: number; mealTimePenalty: number };
-    energy: { base: number; sleepPenalty: number };
-    happiness: { base: number; loneliness: number };
-    health: { base: number; starvation: number };
+    energy: number;
     play: number;
     love: number;
-    chat: number;
     knowledge: number;
+    happiness: number;
+    health: number;
   };
   thresholds: {
     critical: number;
@@ -22,14 +20,12 @@ interface HeartbeatConfig {
 export const CONFIG: HeartbeatConfig = {
   intervalMs: 10 * 60 * 1000, // 10 minutes
   decayRates: {
-    hunger: { base: 5, mealTimePenalty: 10 },  // Extra decay if missed meal time
-    energy: { base: 3, sleepPenalty: 15 },      // Extra decay if not sleeping at night
-    happiness: { base: 2, loneliness: 5 },       // Extra if no interaction
-    health: { base: 1, starvation: 10 },         // Extra if hunger < 20
+    energy: 3,
     play: 2,
     love: 2,
-    chat: 2,
     knowledge: 1,
+    happiness: 2,
+    health: 1,
   },
   thresholds: {
     critical: 20,  // Below this triggers penalties
@@ -39,8 +35,6 @@ export const CONFIG: HeartbeatConfig = {
 
 class HeartbeatService {
   private timer: number | null = null;
-  private missedMealsCount = 0;
-  private readonly MAX_MISSED_MEALS = 4;
   private lastSelfCareTime = 0; // Timestamp of last self-care action
   private readonly SELF_CARE_COOLDOWN = 2 * 60 * 60 * 1000; // 2 hours
 
@@ -63,13 +57,8 @@ class HeartbeatService {
     }
   }
 
-  resetMissedMeals() {
-    this.missedMealsCount = 0;
-    console.log('[HeartbeatService] Missed meals counter reset');
-  }
-
   getMissedMealsCount(): number {
-    return this.missedMealsCount;
+    return 0; // No longer applicable with 4-needs system
   }
 
   private async tick() {
@@ -78,81 +67,24 @@ class HeartbeatService {
     const memoryStore = useMemoryStore();
 
     const petStatus = petKingdomStore.petStatus;
-    const now = new Date();
-    const currentHour = now.getHours();
-
-    // Circadian rhythm checks
-    const isMealTime = memoryStore.isMealTime();
-    const isSleepTime = memoryStore.isSleepTime();
 
     console.log('[HeartbeatService] Current state:', {
-      isMealTime,
-      isSleepTime,
-      hour: currentHour,
-      hunger: petStatus.hunger,
+      energy: petStatus.energy,
+      play: petStatus.play,
+      love: petStatus.love,
+      knowledge: petStatus.knowledge,
     });
 
-    // Calculate decay with circadian adjustments
-    let hungerDecay = CONFIG.decayRates.hunger.base;
-    let energyDecay = CONFIG.decayRates.energy.base;
-    let happinessDecay = CONFIG.decayRates.happiness.base;
-    let healthDecay = CONFIG.decayRates.health.base;
-
-    // Meal time penalty: if it's meal time and hunger is low, decay faster
-    if (isMealTime && petStatus.hunger < 70) {
-      hungerDecay += CONFIG.decayRates.hunger.mealTimePenalty;
-      console.log('[HeartbeatService] Meal time penalty applied to hunger');
-    }
-
-    // Sleep time penalty: if it's sleep time and not sleeping, energy decays faster
-    if (isSleepTime && petStatus.sleep < 70) {
-      energyDecay += CONFIG.decayRates.energy.sleepPenalty;
-      console.log('[HeartbeatService] Sleep time penalty applied to energy');
-    }
-
-    // Starvation penalty: if hunger is critical, health decays faster
-    if (petStatus.hunger < CONFIG.thresholds.critical) {
-      healthDecay += CONFIG.decayRates.health.starvation;
-      happinessDecay += CONFIG.decayRates.happiness.loneliness;
-    }
-
-    // Apply decay
+    // Apply decay to all needs
     const updatedStatus = {
       ...petStatus,
-      hunger: Math.max(0, petStatus.hunger - hungerDecay),
-      energy: Math.max(0, petStatus.energy - energyDecay),
-      happiness: Math.max(0, petStatus.happiness - happinessDecay),
-      health: Math.max(0, petStatus.health - healthDecay),
+      energy: Math.max(0, petStatus.energy - CONFIG.decayRates.energy),
       play: Math.max(0, petStatus.play - CONFIG.decayRates.play),
       love: Math.max(0, petStatus.love - CONFIG.decayRates.love),
-      chat: Math.max(0, petStatus.chat - CONFIG.decayRates.chat),
       knowledge: Math.max(0, petStatus.knowledge - CONFIG.decayRates.knowledge),
+      happiness: Math.max(0, petStatus.happiness - CONFIG.decayRates.happiness),
+      health: Math.max(0, petStatus.health - CONFIG.decayRates.health),
     };
-
-    // Penalty system: Missed Meals
-    if (isMealTime && updatedStatus.hunger < CONFIG.thresholds.critical) {
-      this.missedMealsCount++;
-      console.warn(`[HeartbeatService] Missed meal detected! Count: ${this.missedMealsCount}/${this.MAX_MISSED_MEALS}`);
-
-      // Additional penalties for missed meals
-      updatedStatus.health = Math.max(0, updatedStatus.health - 5);
-      updatedStatus.happiness = Math.max(0, updatedStatus.happiness - 10);
-
-      // Check for death
-      if (this.missedMealsCount >= this.MAX_MISSED_MEALS) {
-        await this.handleDeath(petKingdomStore);
-        return;
-      }
-    } else if (updatedStatus.hunger >= 70) {
-      // Reset counter if pet is well-fed
-      this.missedMealsCount = 0;
-    }
-
-    // Update sleep decay if not sleeping during sleep time
-    if (isSleepTime && petStatus.sleep < 50) {
-      updatedStatus.health = Math.max(0, updatedStatus.health - 2);
-      updatedStatus.happiness = Math.max(0, updatedStatus.happiness - 3);
-    }
 
     // Apply updates to pet-kingdom store
     petKingdomStore.petStatus = updatedStatus;
@@ -162,10 +94,12 @@ class HeartbeatService {
       'default',
       updatedStatus,
       {
-        hunger: -hungerDecay,
-        energy: -energyDecay,
-        happiness: -happinessDecay,
-        health: -healthDecay,
+        energy: -CONFIG.decayRates.energy,
+        play: -CONFIG.decayRates.play,
+        love: -CONFIG.decayRates.love,
+        knowledge: -CONFIG.decayRates.knowledge,
+        happiness: -CONFIG.decayRates.happiness,
+        health: -CONFIG.decayRates.health,
       },
       'auto'
     );
@@ -173,7 +107,7 @@ class HeartbeatService {
     // Emotion State Machine: Check for stat-based emotion transitions and natural decay
     petKingdomStore.updateEmotion('decay');
 
-    // Trigger proactive behavior checks (Phase 2)
+    // Trigger proactive behavior checks
     await this.checkProactiveBehaviors(petKingdomStore, memoryStore, updatedStatus);
 
     // Check for self-care mode (trigger after 2 hours of user inactivity)
@@ -187,10 +121,10 @@ class HeartbeatService {
   ) {
     // Check if pet should send a request (need < 30)
     const urgentNeeds = [
-      { type: 'eat', value: status.hunger, label: 'hunger' },
-      { type: 'sleep', value: status.sleep, label: 'sleep' },
-      { type: 'love', value: status.love, label: 'love' },
+      { type: 'energy', value: status.energy, label: 'energy' },
       { type: 'play', value: status.play, label: 'play' },
+      { type: 'love', value: status.love, label: 'love' },
+      { type: 'learn', value: status.knowledge, label: 'knowledge' },
     ];
 
     const mostUrgent = urgentNeeds.reduce((prev, curr) =>
@@ -219,10 +153,10 @@ class HeartbeatService {
 
     // Check if any stat is critically low (< 30)
     const criticalNeeds = [
-      { stat: 'hunger', value: status.hunger, action: 'eat' },
-      { stat: 'sleep', value: status.sleep, action: 'sleep' },
-      { stat: 'love', value: status.love, action: 'love' },
+      { stat: 'energy', value: status.energy, action: 'energy' },
       { stat: 'play', value: status.play, action: 'play' },
+      { stat: 'love', value: status.love, action: 'love' },
+      { stat: 'knowledge', value: status.knowledge, action: 'learn' },
     ];
 
     const criticalNeed = criticalNeeds.find(n => n.value < 30);
@@ -253,38 +187,6 @@ class HeartbeatService {
         ['self-care', 'autonomous']
       );
     }
-  }
-
-  private async handleDeath(petKingdomStore: ReturnType<typeof usePetKingdomStore>) {
-    console.error('[HeartbeatService] PET HAS DIED due to starvation (4 missed meals).');
-
-    petKingdomStore.petStatus = {
-      ...petKingdomStore.petStatus,
-      health: 0,
-      happiness: 0,
-      hunger: 0,
-      energy: 0,
-    };
-
-    // Record death event
-    await useMemoryStore().addMemory(
-      'event',
-      'Pet Death',
-      'Pet died due to 4 consecutive missed meals',
-      {
-        cause: 'starvation',
-        missedMeals: this.missedMealsCount,
-        timestamp: new Date().toISOString(),
-      },
-      10,
-      ['death', 'starvation', 'game-over']
-    );
-
-    // Stop the heartbeat
-    this.stop();
-
-    // Show death notification (will be implemented in UI)
-    alert('Your pet has passed away due to starvation. Please restart the application to adopt a new pet.');
   }
 }
 

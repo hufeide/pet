@@ -1,12 +1,53 @@
 <template>
   <div class="memory-panel">
+    <!-- Pet Status Panel - Unified 4 Need Stats -->
+    <div class="pet-status-panel">
+      <div class="status-header">
+        <div class="pet-identity">
+          <div class="pet-avatar-small">{{ getAvatar(petStatus.name) }}</div>
+          <div class="pet-info">
+            <h3>{{ petStatus.name }}</h3>
+            <span class="status-level">Level {{ petStatus.level }}</span>
+          </div>
+        </div>
+        <div class="status-meta">
+          <span class="friendship-badge" :class="friendshipLevel">
+            {{ friendshipLevelLabel }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Four Core Needs -->
+      <div class="needs-grid">
+        <div class="need-item" :class="{ urgent: petStatus.energy < 40 }">
+          <div class="need-label">⚡ 能量</div>
+          <div class="progress-bg">
+            <div class="progress-fill" :style="{ width: petStatus.energy + '%' }"></div>
+          </div>
+        </div>
+        <div class="need-item" :class="{ urgent: petStatus.play < 40 }">
+          <div class="need-label">🎾 玩耍</div>
+          <div class="progress-bg">
+            <div class="progress-fill" :style="{ width: petStatus.play + '%' }"></div>
+          </div>
+        </div>
+        <div class="need-item" :class="{ urgent: petStatus.love < 40 }">
+          <div class="need-label">❤️ 爱意</div>
+          <div class="progress-bg">
+            <div class="progress-fill" :style="{ width: petStatus.love + '%' }"></div>
+          </div>
+        </div>
+        <div class="need-item" :class="{ urgent: petStatus.knowledge < 40 }">
+          <div class="need-label">📚 知识</div>
+          <div class="progress-bg">
+            <div class="progress-fill" :style="{ width: petStatus.knowledge + '%' }"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="panel-header">
       <h3>Memory System</h3>
-      <div class="memory-stats">
-        <span>Total: {{ totalMemories }}</span>
-        <span>By Type: {{ JSON.stringify(memoriesByType) }}</span>
-        <span>Avg Usefulness: {{ averageUsefulness.toFixed(1) }}</span>
-      </div>
     </div>
 
     <div class="memories-container">
@@ -145,13 +186,27 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useMemoryStore } from '../store/memory';
+import { usePetKingdomStore } from '../store/pet-kingdom';
 
 const memoryStore = useMemoryStore();
+const petKingdomStore = usePetKingdomStore();
 
-const totalMemories = computed(() => memoryStore.totalMemories || 0);
-const memoriesByType = computed(() => memoryStore.memoriesByType || {});
-const averageUsefulness = computed(() => memoryStore.averageUsefulness || 0);
+// Pet status from pet-kingdom store (unified 4 needs)
+const petStatus = computed(() => petKingdomStore.petStatus);
 
+// Friendship level
+const friendshipLevel = computed(() => memoryStore.friendshipLevel);
+const friendshipLevelLabel = computed(() => {
+  const labels: Record<string, string> = {
+    stranger: '陌生人',
+    acquaintance: '熟人',
+    friend: '好友',
+    bestFriend: '最佳好友',
+  };
+  return labels[friendshipLevel.value] || '陌生人';
+});
+
+// Memory data
 const dateGroups = computed(() => memoryStore.dateGroups || []);
 const groupedMemories = computed(() => memoryStore.groupedMemories || {});
 
@@ -231,6 +286,10 @@ function formatDate(timestamp: string): string {
   const date = new Date(timestamp);
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
+
+function getAvatar(name: string): string {
+  return name.substring(0, 2).toUpperCase();
+}
 </script>
 
 <style scoped>
@@ -238,6 +297,127 @@ function formatDate(timestamp: string): string {
   padding: 16px;
   max-height: 80vh;
   overflow-y: auto;
+}
+
+/* Pet Status Panel - Unified 4 Needs */
+.pet-status-panel {
+  padding: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.status-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.pet-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pet-avatar-small {
+  width: 40px;
+  height: 40px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: white;
+}
+
+.pet-info h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: white;
+}
+
+.status-level {
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.8);
+}
+
+.status-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.friendship-badge {
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+  background: rgba(255,255,255,0.2);
+  color: white;
+}
+
+.friendship-badge.stranger {
+  background: rgba(158, 158, 158, 0.5);
+}
+
+.friendship-badge.acquaintance {
+  background: rgba(33, 150, 243, 0.6);
+}
+
+.friendship-badge.friend {
+  background: rgba(76, 175, 80, 0.6);
+}
+
+.friendship-badge.bestfriend {
+  background: rgba(233, 30, 99, 0.6);
+}
+
+/* Four Core Needs Grid */
+.needs-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.need-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.need-label {
+  width: 70px;
+  font-size: 0.85rem;
+  color: white;
+  font-weight: 500;
+}
+
+.progress-bg {
+  flex: 1;
+  height: 8px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4caf50, #8bc34a);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.need-item.urgent .progress-fill {
+  background: linear-gradient(90deg, #f44336, #ff5722);
+  animation: pulse-urgent 1s infinite;
+}
+
+@keyframes pulse-urgent {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
 .panel-header {
@@ -256,13 +436,6 @@ function formatDate(timestamp: string): string {
 .panel-header h3 {
   margin: 0;
   font-size: 1.2rem;
-}
-
-.memory-stats {
-  display: flex;
-  gap: 12px;
-  font-size: 0.85rem;
-  color: #666;
 }
 
 .memories-container {

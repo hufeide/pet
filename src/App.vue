@@ -22,7 +22,6 @@
         :showPetStatus="isChattingWithPet"
         @close-chat="stopPetChat"
       />
-      <Adventure v-if="currentTab === 'adventure'" />
       <AdventureUltimate v-if="currentTab === 'ultimate'" />
       <Social v-if="currentTab === 'social'" />
       <Memory v-if="currentTab === 'memory'" />
@@ -36,20 +35,18 @@
 import { ref } from 'vue';
 import Pet from './components/Pet.vue';
 import Chat from './components/Chat.vue';
-import Adventure from './components/Adventure.vue';
 import AdventureUltimate from './components/AdventureUltimate.vue';
 import Social from './components/Social.vue';
 import Memory from './components/Memory.vue';
 import Config from './components/Config.vue';
 import PetParadise from './components/PetParadise.vue';
 
-const currentTab = ref<'pet' | 'chat' | 'adventure' | 'ultimate' | 'social' | 'memory' | 'config' | 'paradise'>('pet');
+const currentTab = ref<'pet' | 'chat' | 'ultimate' | 'social' | 'memory' | 'config' | 'paradise'>('pet');
 const isChattingWithPet = ref(false);
 
 const tabs = [
   { id: 'pet' as const, label: 'Pet' },
   { id: 'chat' as const, label: 'Chat' },
-  { id: 'adventure' as const, label: 'Adventure' },
   { id: 'ultimate' as const, label: 'Ultimate ⚡' },
   { id: 'social' as const, label: 'Social' },
   { id: 'memory' as const, label: 'Memory' },

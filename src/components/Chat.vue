@@ -3,9 +3,14 @@
     <!-- Pet Status Panel - only show when isChattingWithPet is true -->
     <div class="pet-status-panel" v-if="showPetStatus && petStatus">
       <div class="status-header">
-        <h3>{{ petStatus.name }}</h3>
+        <div class="pet-identity">
+          <div class="pet-avatar">{{ getAvatar(petStatus.name) }}</div>
+          <div class="pet-info">
+            <h3>{{ petStatus.name }}</h3>
+            <span class="status-level">Level {{ level }}</span>
+          </div>
+        </div>
         <div class="status-meta">
-          <span class="status-level">Level {{ level }}</span>
           <!-- Current Emotion Display -->
           <span class="emotion-badge" :class="emotionClass" :title="'Emotion: ' + currentEmotionLabel">
             {{ currentEmotionEmoji }}
@@ -13,6 +18,26 @@
           <span class="friendship-badge" :class="friendshipLevel">
             {{ friendshipLevelLabel }}
           </span>
+        </div>
+      </div>
+
+      <!-- Quick Stats Row - Unified 4 Needs -->
+      <div class="quick-stats-row">
+        <div class="quick-stat" :class="{ urgent: petStatus.energy < 40 }">
+          <span class="stat-icon">⚡</span>
+          <span class="stat-value">{{ petStatus.energy }}%</span>
+        </div>
+        <div class="quick-stat" :class="{ urgent: petStatus.play < 40 }">
+          <span class="stat-icon">🎾</span>
+          <span class="stat-value">{{ petStatus.play }}%</span>
+        </div>
+        <div class="quick-stat" :class="{ urgent: petStatus.love < 40 }">
+          <span class="stat-icon">❤️</span>
+          <span class="stat-value">{{ petStatus.love }}%</span>
+        </div>
+        <div class="quick-stat" :class="{ urgent: petStatus.knowledge < 40 }">
+          <span class="stat-icon">📚</span>
+          <span class="stat-value">{{ petStatus.knowledge }}%</span>
         </div>
       </div>
 
@@ -26,69 +51,34 @@
 
       <!-- Top Personality Traits -->
       <div class="personality-traits" v-if="topTraits.length > 0">
-        <span class="trait-label">Traits:</span>
+        <span class="trait-label">性格:</span>
         <span class="trait-tag" v-for="trait in topTraits" :key="trait">{{ trait }}</span>
       </div>
-      <div class="status-grid">
-        <div class="status-item" v-for="stat in mainStats" :key="stat.key">
-          <span class="status-label">{{ stat.label }}</span>
-          <div class="status-bar-wrapper">
-            <div class="status-bar">
-              <div class="status-fill" :style="{ width: petStatus[stat.key] + '%' }" :class="{ urgent: petStatus[stat.key] < 40 }" />
-            </div>
-            <transition name="float">
-              <span v-if="floatChanges[stat.key]" :class="['float-change', floatChanges[stat.key] > 0 ? 'positive' : 'negative']">
-                {{ floatChanges[stat.key] > 0 ? '+' : '' }}{{ floatChanges[stat.key] }}
-              </span>
-            </transition>
-          </div>
-        </div>
-      </div>
-      <div class="needs-grid">
-        <div class="need-item" v-for="need in needConfig" :key="need.key">
-          <div class="need-header">
-            <span class="need-label">{{ need.label }}</span>
-            <span class="need-help" @click="openNeedHelp(need.key)">?</span>
-          </div>
-          <div class="need-bar-wrapper">
-            <div class="need-bar">
-              <div class="need-fill" :style="{ width: petStatus[need.key] + '%' }" :class="{ urgent: petStatus[need.key] < 40 }" />
-            </div>
-            <transition name="float">
-              <span v-if="floatChanges[need.key]" :class="['float-change', floatChanges[need.key] > 0 ? 'positive' : 'negative']">
-                {{ floatChanges[need.key] > 0 ? '+' : '' }}{{ floatChanges[need.key] }}
-              </span>
-            </transition>
-          </div>
-        </div>
-      </div>
+
+      <!-- Pet Request -->
       <div v-if="petRequest" class="pet-request">
         <span class="request-icon">🐾</span>
         <span class="request-text">{{ petRequest }}</span>
-        <button class="request-btn" @click="handleRequest">Help</button>
+        <button class="request-btn" @click="handleRequest">帮助</button>
       </div>
 
       <!-- Interactive Action Tags -->
       <div class="action-tags">
-        <button class="action-tag" @click="handleAction('feed')" title="Feed - Feed the pet">
-          <span class="tag-icon">🍖</span>
-          <span class="tag-text">Feed</span>
-        </button>
-        <button class="action-tag" @click="handleAction('sleep')" title="Sleep - Let pet rest">
-          <span class="tag-icon">🌙</span>
-          <span class="tag-text">Sleep</span>
+        <button class="action-tag" @click="handleAction('energy')" title="Energy - Restore energy">
+          <span class="tag-icon">⚡</span>
+          <span class="tag-text">能量</span>
         </button>
         <button class="action-tag" @click="handleAction('play')" title="Play - Play with pet">
-          <span class="tag-icon">⚽</span>
-          <span class="tag-text">Play</span>
+          <span class="tag-icon">🎾</span>
+          <span class="tag-text">玩耍</span>
         </button>
         <button class="action-tag" @click="handleAction('love')" title="Love - Show affection">
           <span class="tag-icon">❤️</span>
-          <span class="tag-text">Love</span>
+          <span class="tag-text">爱意</span>
         </button>
         <button class="action-tag" @click="handleAction('learn')" title="Learn - Learn new topic">
           <span class="tag-icon">📚</span>
-          <span class="tag-text">Learn</span>
+          <span class="tag-text">知识</span>
         </button>
       </div>
     </div>
@@ -126,14 +116,14 @@
       <textarea
         v-model="input"
         @keyup.enter="sendMessage"
-        placeholder="Say something..."
+        placeholder="输入消息..."
         :disabled="loading"
       />
       <button
         @click="sendMessage"
         :disabled="loading || !input.trim()"
       >
-        {{ loading ? '...' : 'Send' }}
+        {{ loading ? '...' : '发送' }}
       </button>
     </div>
 
@@ -252,12 +242,12 @@ const friendshipLevel = computed(() => memoryStore.friendshipLevel);
 const friendshipStats = computed(() => memoryStore.friendshipStats);
 const friendshipLevelLabel = computed(() => {
   const labels: Record<string, string> = {
-    stranger: 'Stranger',
-    acquaintance: 'Acquaintance',
-    friend: 'Friend',
-    bestFriend: 'Best Friend',
+    stranger: '陌生人',
+    acquaintance: '熟人',
+    friend: '好友',
+    bestFriend: '最佳好友',
   };
-  return labels[friendshipLevel.value] || 'Stranger';
+  return labels[friendshipLevel.value] || '陌生人';
 });
 const nextFriendshipLevel = computed(() => {
   const next = friendshipStats.value.nextLevel;
@@ -312,21 +302,12 @@ const knowledgeShareInterval = ref<number | null>(null);
 // Profile update interval (for periodic user preference extraction)
 const profileUpdateInterval = ref<number | null>(null);
 
-// Main stats configuration (happiness, hunger, health, energy)
-const mainStats = [
-  { key: 'happiness' as const, label: '❤️ Happiness' },
-  { key: 'hunger' as const, label: '🍗 Hunger' },
-  { key: 'health' as const, label: '❤️ Health' },
-  { key: 'energy' as const, label: '⚡ Energy' },
-];
-
-// Need configuration with help content - using full rules from NeedHelpModal
+// Unified 4 needs configuration
 const needConfig = computed(() => [
-  { key: 'sleep' as const, label: '💤 Sleep' },
-  { key: 'play' as const, label: '⚽ Play' },
-  { key: 'love' as const, label: '💖 Love' },
-  { key: 'chat' as const, label: '💬 Chat' },
-  { key: 'knowledge' as const, label: '📚 Knowledge' },
+  { key: 'energy' as const, label: '⚡ 能量' },
+  { key: 'play' as const, label: '🎾 玩耍' },
+  { key: 'love' as const, label: '❤️ 爱意' },
+  { key: 'knowledge' as const, label: '📚 知识' },
 ]);
 
 // Help modal state
@@ -345,19 +326,14 @@ const needSatisfactionNotification = ref<NeedSatisfaction | null>(null);
 
 
 // Action handler for interactive tags
-function handleAction(action: 'feed' | 'sleep' | 'play' | 'love' | 'learn') {
+function handleAction(action: 'energy' | 'play' | 'love' | 'learn') {
   let statKey: string = '';
   let increase: number = 0;
 
   switch (action) {
-    case 'feed':
-      petKingdomStore.feedPet();
-      statKey = 'hunger';
-      increase = 20;
-      break;
-    case 'sleep':
-      petKingdomStore.putPetToSleep();
-      statKey = 'sleep';
+    case 'energy':
+      petKingdomStore.restoreEnergy();
+      statKey = 'energy';
       increase = 100;
       break;
     case 'play':
@@ -383,14 +359,7 @@ function handleAction(action: 'feed' | 'sleep' | 'play' | 'love' | 'learn') {
   }
 
   // Record to memory
-  const needTypeMap: Record<string, string> = {
-    feed: 'eat',
-    sleep: 'sleep',
-    play: 'play',
-    love: 'love',
-    learn: 'learn',
-  };
-  memoryStore.recordNeedSatisfied('default', needTypeMap[action] as any, true);
+  memoryStore.recordNeedSatisfied('default', action as any, true);
 }
 
 // Process need satisfaction and update pet state
@@ -400,11 +369,9 @@ async function processNeedSatisfaction(detected: ReturnType<typeof petKingdomSto
   const increase = await petKingdomStore.processNeedSatisfaction('default', detected.need, 'conversation');
 
   const needLabels: Record<string, string> = {
-    eat: 'Hunger',
-    sleep: 'Sleep',
+    energy: 'Energy',
     play: 'Play',
     love: 'Love',
-    chat: 'Chat',
     learn: 'Knowledge',
   };
 
@@ -548,6 +515,10 @@ function formatDate(timestamp: string): string {
   return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
+function getAvatar(name: string): string {
+  return name.substring(0, 2).toUpperCase();
+}
+
 // Start knowledge sharing check interval when chat is open
 onMounted(() => {
   // Start periodic knowledge sharing check (every 5 minutes while chat is open)
@@ -611,14 +582,14 @@ watch(
 
 .message-user {
   align-self: flex-end;
-  background: #1976D2;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border-bottom-right-radius: 2px;
 }
 
 .message-assistant {
   align-self: flex-start;
-  background: #E0E0E0;
+  background: #f5f5f5;
   color: #333;
   border-bottom-left-radius: 2px;
 }
@@ -686,17 +657,18 @@ watch(
 
 .chat-input button {
   padding: 0 16px;
-  background: #1976D2;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
   border-radius: 6px;
   cursor: pointer;
   font-weight: 500;
-  transition: background 0.2s;
+  transition: all 0.2s;
 }
 
 .chat-input button:hover:not(:disabled) {
-  background: #1565C0;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
 .chat-input button:disabled {
@@ -707,21 +679,45 @@ watch(
 /* Pet Status Panel */
 .pet-status-panel {
   padding: 16px;
-  background: #f8f9fa;
-  border-bottom: 1px solid #e0e0e0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-bottom: none;
 }
 
 .status-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
-.status-header h3 {
+.pet-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pet-avatar {
+  width: 44px;
+  height: 44px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+}
+
+.pet-info h3 {
   margin: 0;
   font-size: 1.2rem;
-  color: #333;
+  color: white;
+}
+
+.status-level {
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.8);
 }
 
 .status-meta {
@@ -730,96 +726,119 @@ watch(
   gap: 8px;
 }
 
-.status-level {
-  font-size: 0.9rem;
-  color: #666;
-  font-weight: 500;
-}
-
 /* Emotion Badge Styles */
 .emotion-badge {
-  font-size: 1.2rem;
-  padding: 2px 6px;
-  border-radius: 12px;
-  background: #fff3e0;
+  font-size: 1.4rem;
+  padding: 4px 8px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
   transition: all 0.3s ease;
 }
 
 .emotion-badge.excited {
-  background: #fff3e0;
-  color: #e65100;
+  background: rgba(255, 193, 7, 0.3);
   animation: pulse 1s ease infinite;
 }
 
 .emotion-badge.melancholy {
-  background: #e3f2fd;
-  color: #1565c0;
-  opacity: 0.8;
+  background: rgba(33, 150, 243, 0.3);
+  animation: float 2s ease-in-out infinite;
 }
 
 .emotion-badge.anxious {
-  background: #fce4ec;
-  color: #c2185b;
+  background: rgba(244, 67, 54, 0.3);
   animation: shake 0.5s ease;
 }
 
 .emotion-badge.lazy {
-  background: #e8f5e9;
-  color: #2e7d32;
-  opacity: 0.7;
+  background: rgba(76, 175, 80, 0.3);
+  opacity: 0.8;
 }
 
 .emotion-badge.neutral {
-  background: #f5f5f5;
-  color: #757575;
+  background: rgba(255,255,255,0.2);
 }
 
 @keyframes pulse {
   0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
+  50% { transform: scale(1.15); }
 }
 
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-2px); }
-  75% { transform: translateX(2px); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
 }
 
 .friendship-badge {
   font-size: 0.75rem;
-  padding: 2px 8px;
+  padding: 4px 10px;
   border-radius: 12px;
   font-weight: 600;
-  text-transform: capitalize;
+  background: rgba(255,255,255,0.2);
+  color: white;
 }
 
 .friendship-badge.stranger {
-  background: #e0e0e0;
-  color: #666;
+  background: rgba(158, 158, 158, 0.5);
 }
 
 .friendship-badge.acquaintance {
-  background: #bbdefb;
-  color: #1565c0;
+  background: rgba(33, 150, 243, 0.6);
 }
 
 .friendship-badge.friend {
-  background: #c8e6c9;
-  color: #2e7d32;
+  background: rgba(76, 175, 80, 0.6);
 }
 
 .friendship-badge.bestfriend {
-  background: #f8bbd0;
-  color: #c2185b;
+  background: rgba(233, 30, 99, 0.6);
 }
 
+/* Quick Stats Row */
+.quick-stats-row {
+  display: flex;
+  justify-content: space-around;
+  padding: 10px 0;
+  margin-bottom: 12px;
+  border-top: 1px solid rgba(255,255,255,0.2);
+  border-bottom: 1px solid rgba(255,255,255,0.2);
+}
+
+.quick-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.quick-stat.urgent .stat-icon {
+  animation: pulse 1s infinite;
+}
+
+.stat-icon {
+  font-size: 1.3rem;
+}
+
+.stat-value {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: white;
+}
+
+/* Friendship Progress Bar */
 .friendship-progress {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   font-size: 0.75rem;
-  color: #666;
+  color: rgba(255,255,255,0.9);
 }
 
 .progress-label {
@@ -828,200 +847,51 @@ watch(
 
 .progress-bar {
   flex: 1;
-  height: 4px;
-  background: #e0e0e0;
-  border-radius: 2px;
+  height: 6px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 3px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
   background: linear-gradient(90deg, #4caf50, #8bc34a);
-  border-radius: 2px;
+  border-radius: 3px;
   transition: width 0.3s ease;
 }
 
+/* Personality Traits */
 .personality-traits {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   font-size: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .trait-label {
-  color: #666;
+  color: rgba(255,255,255,0.8);
 }
 
 .trait-tag {
-  background: #fff3e0;
-  color: #e65100;
-  padding: 2px 6px;
-  border-radius: 4px;
+  background: rgba(255,255,255,0.2);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 10px;
   font-size: 0.7rem;
   font-weight: 500;
 }
 
-.status-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.status-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.status-label {
-  font-size: 0.85rem;
-  color: #555;
-}
-
-.status-bar-wrapper {
-  position: relative;
-  width: 100%;
-}
-
-.status-bar {
-  width: 100%;
-  height: 8px;
-  background: #e0e0e0;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.status-fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.3s ease;
-  background: #4CAF50;
-}
-
-.status-fill.urgent {
-  background: #F44336;
-}
-
-.needs-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.need-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.need-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.need-label {
-  flex: 1;
-  font-size: 0.8rem;
-  color: #666;
-}
-
-.need-help {
-  width: 18px;
-  height: 18px;
-  background: #1976D2;
-  color: white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  cursor: pointer;
-  font-weight: bold;
-  transition: background 0.2s;
-}
-
-.need-help:hover {
-  background: #1565C0;
-}
-
-.need-bar-wrapper {
-  position: relative;
-  width: 100%;
-}
-
-.need-bar {
-  width: 100%;
-  height: 6px;
-  background: #e0e0e0;
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.need-fill {
-  height: 100%;
-  border-radius: 3px;
-  transition: width 0.3s ease;
-  background: #2196F3;
-}
-
-.need-fill.urgent {
-  background: #FF9800;
-}
-
-/* Floating Change Animation */
-.float-change {
-  position: absolute;
-  right: 0;
-  top: -8px;
-  font-size: 0.75rem;
-  font-weight: bold;
-  padding: 2px 6px;
-  border-radius: 4px;
-  animation: floatUp 1.5s ease-out forwards;
-  white-space: nowrap;
-}
-
-.float-change.positive {
-  color: #4CAF50;
-  background: rgba(76, 175, 80, 0.1);
-}
-
-.float-change.negative {
-  color: #F44336;
-  background: rgba(244, 67, 54, 0.1);
-}
-
-@keyframes floatUp {
-  0% {
-    opacity: 0;
-    transform: translateY(0) scale(0.8);
-  }
-  10% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-  80% {
-    opacity: 1;
-    transform: translateY(-12px) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-20px) scale(0.9);
-  }
-}
-
+/* Pet Request */
 .pet-request {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px;
-  background: #fff3e0;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.15);
   border-radius: 8px;
-  border: 1px solid #ffe0b2;
+  margin-bottom: 12px;
 }
 
 .request-icon {
@@ -1031,86 +901,7 @@ watch(
 .request-text {
   flex: 1;
   font-size: 0.9rem;
-  color: #e65100;
-}
-
-/* Action Tags */
-.action-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.action-tag {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  background: white;
-  border: 2px solid #1976D2;
-  border-radius: 20px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 600;
-  transition: all 0.2s ease;
-  color: #1976D2;
-}
-
-.action-tag:hover {
-  background: #e3f2fd;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(25, 118, 210, 0.2);
-}
-
-.action-tag:active {
-  transform: translateY(0);
-  background: #bbdefb;
-}
-
-.tag-icon {
-  font-size: 1.1rem;
-}
-
-.tag-text {
-  font-size: 0.8rem;
-}
-
-/* Float Change Animation */
-.float-change {
-  position: absolute;
-  font-size: 0.75rem;
-  font-weight: 700;
-  animation: floatUp 1s ease-out forwards;
-  z-index: 10;
-}
-
-.float-change.positive {
-  color: #4caf50;
-}
-
-.float-change.negative {
-  color: #f44336;
-}
-
-@keyframes floatUp {
-  0% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-}
-
-/* Progress Bar Wrapper for float text positioning */
-.status-bar-wrapper,
-.need-bar-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  color: white;
 }
 
 .request-btn {
@@ -1128,83 +919,45 @@ watch(
   background: #f57c00;
 }
 
-/* Need Help Modal Styles */
-.need-help-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+/* Action Tags */
+.action-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.action-tag {
   display: flex;
   align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.need-help-modal-content {
-  background-color: white;
-  border-radius: 12px;
-  padding: 24px;
-  width: 90%;
-  max-width: 400px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-}
-
-.need-help-modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #eee;
-}
-
-.need-help-modal-header h3 {
-  margin: 0;
-  font-size: 18px;
-  color: #333;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 24px;
+  gap: 6px;
+  padding: 8px 14px;
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 20px;
   cursor: pointer;
-  color: #999;
-  line-height: 1;
-  padding: 0;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-}
-
-.close-btn:hover {
-  background-color: #f5f5f5;
-  color: #333;
-}
-
-.help-section {
-  margin-bottom: 20px;
-}
-
-.help-section h4 {
-  margin: 0 0 8px 0;
-  font-size: 14px;
+  font-size: 0.85rem;
   font-weight: 600;
-  color: #555;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  transition: all 0.2s ease;
+  color: white;
 }
 
-.help-section p {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.6;
-  color: #666;
+.action-tag:hover {
+  background: rgba(255,255,255,0.25);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.action-tag:active {
+  transform: translateY(0);
+  background: rgba(255,255,255,0.3);
+}
+
+.tag-icon {
+  font-size: 1.1rem;
+}
+
+.tag-text {
+  font-size: 0.8rem;
 }
 
 /* Error Toast Styles */
@@ -1256,7 +1009,7 @@ watch(
   top: 24px;
   left: 50%;
   transform: translateX(-50%);
-  background-color: #4CAF50;
+  background: linear-gradient(135deg, #4caf50, #8bc34a);
   color: white;
   padding: 12px 24px;
   border-radius: 8px;

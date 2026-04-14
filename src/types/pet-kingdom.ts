@@ -18,6 +18,7 @@ export interface OnlinePlayer {
   level: number;
   position: { x: number; y: number };
   lastUpdate: number;
+  personality?: string; // AI宠物性格描述
 }
 
 // 互动类型
@@ -116,9 +117,11 @@ export interface PetSnapshot {
   experience: number;
   stats: {
     happiness: number;
-    hunger: number;
-    health: number;
     energy: number;
+    play: number;
+    love: number;
+    knowledge: number;
+    health: number;
   };
   inventoryCount: number;
   timestamp: string;
@@ -138,15 +141,13 @@ export interface ConversationTopic {
 // ==========================================
 
 // Need types for pet needs
-export type NeedType = 'eat' | 'sleep' | 'play' | 'love' | 'chat' | 'learn';
+export type NeedType = 'energy' | 'play' | 'love' | 'learn';
 
 // Pet status at a point in time
 export interface PetStatus {
-  hunger: number;
-  sleep: number;
+  energy: number;
   play: number;
   love: number;
-  chat: number;
   knowledge: number;
   health: number;
   happiness: number;
@@ -261,28 +262,16 @@ export interface SelfCareResult {
 // Need satisfaction phrase configurations
 export const NEED_SATISFACTION_PATTERNS: NeedSatisfactionPattern[] = [
   {
-    need: 'eat',
-    keywords: ['喂', '食物', '吃', 'hungry', 'hunger', 'feed', 'food', 'meal'],
+    need: 'energy',
+    keywords: ['休息', '能量', '恢复', 'rest', 'energy', 'recharge', 'sleep', 'nap'],
     phraseTemplates: [
-      'I will feed you',
-      'Here is some food',
-      'Let\'s eat',
-      'Time to eat',
+      'Time to rest',
+      'Let\'s recharge',
+      'Take a break',
+      'Have a rest',
     ],
-    statIncrease: 20,
-    description: 'Satisfies hunger need',
-  },
-  {
-    need: 'sleep',
-    keywords: ['睡觉', '休息', 'sleep', 'rest', 'bed', 'nap'],
-    phraseTemplates: [
-      'Time to sleep',
-      'Go to bed',
-      'Take a rest',
-      'Have a nap',
-    ],
-    statIncrease: 20,
-    description: 'Satisfies sleep need',
+    statIncrease: 30,
+    description: 'Restores energy',
   },
   {
     need: 'play',
@@ -298,27 +287,17 @@ export const NEED_SATISFACTION_PATTERNS: NeedSatisfactionPattern[] = [
   },
   {
     need: 'love',
-    keywords: ['爱', '喜欢', 'love', 'like', ' affection', 'hug', 'kiss'],
+    keywords: ['爱', '喜欢', 'love', 'like', ' affection', 'hug', 'kiss', 'chat', 'talk'],
     phraseTemplates: [
       'I love you',
       'I like you',
       'You are loved',
       'Here is affection',
+      'Let\'s chat',
+      'I want to talk with you',
     ],
     statIncrease: 20,
     description: 'Satisfies love need',
-  },
-  {
-    need: 'chat',
-    keywords: ['聊天', '聊天', 'chat', 'talk', 'conversation', 'speak'],
-    phraseTemplates: [
-      'Let\'s chat',
-      'Time to talk',
-      'I want to chat',
-      'Let\'s have a conversation',
-    ],
-    statIncrease: 15,
-    description: 'Satisfies chat need',
   },
   {
     need: 'learn',

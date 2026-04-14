@@ -2,7 +2,6 @@
 // LLM-powered narrative system for dynamic difficulty and storytelling
 
 import { LLMClient, type ChatMessage } from '../api/llm.js';
-import { useConfigStore } from '../store/config.js';
 import type { LevelPhase, UrgencyLevel } from '../types/adventure-ultimate.js';
 
 export interface NarratorContext {
@@ -21,21 +20,40 @@ export interface NarratorOptions {
   temperature?: number;
 }
 
+// Singleton instance - lazily initialized (currently unused but kept for future use)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const aiNarratorInstance: AINarrator | null = null;
+
 export class AINarrator {
-  private llmClient: LLMClient;
+  private llmClient: LLMClient | null = null;
   private readonly systemPrompt: string;
   private readonly phaseMessages: Map<LevelPhase, string[]>
   private readonly sectionHints: Map<string, string>;
   private pendingRequest: Promise<string> | null = null;
   private messageQueue: string[] = [];
+  private isInitialized = false;
 
   constructor() {
-    const configStore = useConfigStore();
-    this.llmClient = configStore.getApiClient();
-
     this.systemPrompt = this.buildSystemPrompt();
     this.phaseMessages = this.buildPhaseMessages();
     this.sectionHints = this.buildSectionHints();
+  }
+
+  // Initialize with config store (must be called after Pinia is set up)
+  async initialize(): Promise<void> {
+    if (this.isInitialized) return;
+
+    const { useConfigStore } = await import('../store/config.js');
+    const configStore = useConfigStore();
+    this.llmClient = configStore.getApiClient();
+    this.isInitialized = true;
+  }
+
+  private getLlmClient(): LLMClient {
+    if (!this.llmClient) {
+      throw new Error('AINarrator not initialized. Call initialize() first.');
+    }
+    return this.llmClient;
   }
 
   private buildSystemPrompt(): string {
@@ -112,7 +130,7 @@ Your job is to guide a traveler escaping a collapsing temple. Speak in fragments
         return "*The temple groans...*";
       }
 
-      this.pendingRequest = this.llmClient.chat(messages);
+      this.pendingRequest = this.getLlmClient().chat(messages);
       const response = await this.pendingRequest;
 
       // Clean up response
@@ -140,6 +158,11 @@ Your job is to guide a traveler escaping a collapsing temple. Speak in fragments
   }
 
   async getHint(context: NarratorContext): Promise<string> {
+    // Check if initialized
+    if (!this.isInitialized) {
+      return Promise.resolve("The guardian stirs... waiting for connection...");
+    }
+
     const sectionHint = this.sectionHints.get(context.currentSection);
     if (sectionHint) {
       return sectionHint;
@@ -157,7 +180,7 @@ Your job is to guide a traveler escaping a collapsing temple. Speak in fragments
     ];
 
     try {
-      return await this.llmClient.chat(messages);
+      return await this.getLlmClient().chat(messages);
     } catch (error) {
       return "Perhaps... try a different approach? The walls... remember momentum.";
     }
@@ -215,5 +238,5 @@ Your job is to guide a traveler escaping a collapsing temple. Speak in fragments
   }
 }
 
-// Singleton instance
+// Singleton instance - will be initialized lazily
 export const aiNarrator = new AINarrator();
